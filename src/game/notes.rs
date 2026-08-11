@@ -1,3 +1,4 @@
+pub mod embedded;
 pub mod play;
 
 // The 37 playable keys. Every entry in `KEYS` maps to the entry with the

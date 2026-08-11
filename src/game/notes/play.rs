@@ -3,6 +3,8 @@ use std::{thread, time};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use super::embedded;
+
 #[derive(Clone)]
 pub struct Player {
     device: rodio::Device,
@@ -31,22 +33,12 @@ impl Player {
         }
 
         if samples.len() == 0 {
-            let searched = match path {
-                Some(p) => vec![p],
-                None => vec![
-                    PathBuf::from("assets/"),
-                    home::home_dir().unwrap().join(".local/share/piano-rs/assets/"),
-                    PathBuf::from("/usr/local/share/piano-rs/assets/"),
-                    PathBuf::from("/usr/share/piano-rs/assets/"),
-                ],
-            };
-            let searched = searched.iter()
-                .map(|p| p.display().to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
+            // Only reachable when an explicit --assets directory misses files;
+            // without it, samples always come from the embedded assets.
+            let dir = path.unwrap();
             panic!(
-                "No sound assets found! Searched: {}.\nRun piano-rs from the repository root, or copy the assets/ directory to one of these locations.",
-                searched
+                "No sound assets found in {}!\nThe --assets directory must contain the note files (e.g. a2.ogg, as7.ogg).",
+                dir.display()
             );
         }
 
@@ -80,7 +72,15 @@ impl Player {
     }
 
     fn read_note(base: &str, frequency: i8, path: Option<PathBuf>) -> Option<Vec<u8>> {
-        let note_name = format!("{0}{1}.ogg", base, frequency);
+        let note_name = format!("{}{}", base, frequency);
+
+        // Without an explicit --assets directory, serve the note sounds from
+        // the assets embedded in the binary at compile time, so piano-rs
+        // works from any directory without the assets folder on disk.
+        if path.is_none() {
+            return embedded::get(&note_name).map(|bytes| bytes.to_vec());
+        }
+
         let possible_file_paths_by_preference = path.map_or_else(
             || vec![
                 PathBuf::from("assets/"),
@@ -92,7 +92,7 @@ impl Player {
         );
 
         for directory in possible_file_paths_by_preference {
-            let possible_file_path = directory.join(&note_name);
+            let possible_file_path = directory.join(format!("{}.ogg", note_name));
             if !possible_file_path.exists() {
                 continue;
             }
@@ -153,6 +153,14 @@ mod test {
     fn read_note_none() {
         let note = Player::read_note("z", 9, None);
         assert!(note.is_none());
+    }
+
+    #[test]
+    fn embedded_assets_available() {
+        // Embedded assets must not depend on the working directory.
+        assert!(super::embedded::get("a2").is_some());
+        assert!(super::embedded::get("as7").is_some());
+        assert!(super::embedded::get("z9").is_none());
     }
 }
 

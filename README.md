@@ -67,10 +67,9 @@ without any extra flags:
 $ cargo install --path .
 ```
 
-Note: the installed binary locates the note sounds in `assets/` relative to your
-current directory, `~/.local/share/piano-rs/assets/`, `/usr/local/share/piano-rs/assets/`
-or `/usr/share/piano-rs/assets/`. Run it from the repository root, or copy the
-`assets/` directory to one of those locations.
+Note: the note sounds are embedded into the binary at compile time, so piano-rs works
+from any directory without the `assets/` folder on disk. Pass `-a` to load note sounds
+from a custom directory instead.
 
 ## Usage
 
@@ -96,7 +95,7 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -a, --assets <ASSETS>               Path to assets directory (Default: will autolocate) [env: ASSETS=]
+    -a, --assets <ASSETS>               Path to assets directory (Default: embedded in binary) [env: ASSETS=]
         --host-address <ADDRESS>        Set the host's IP Address and Port to connect to (Default: 127.0.0.1:9999)
     -m, --mark-duration <DURATION>      Duration to show piano mark for, in ms (Default: 500)
     -n, --note-duration <DURATION>      Duration to play each note for, where 0 means till the end of note (Default: 0)

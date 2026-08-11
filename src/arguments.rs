@@ -64,7 +64,7 @@ impl Options {
                 .env("ASSETS")
                 .value_name("ASSETS")
                 .takes_value(true)
-                .help("Path to assets directory (Default: will autolocate)"))
+                .help("Path to assets directory (Default: embedded in binary)"))
 
             .arg(Arg::with_name("host_address")
                 .long("host-address")
