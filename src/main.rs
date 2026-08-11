@@ -122,6 +122,7 @@ fn main() -> Result<()> {
         Duration::from_millis(arguments.note_duration),
         Duration::from_millis(arguments.mark_duration),
         Color::Blue,
+        arguments.show_keys,
     )));
 
     keyboard.lock().unwrap().draw().unwrap();

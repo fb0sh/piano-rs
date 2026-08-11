@@ -13,6 +13,7 @@ pub struct Options {
     pub sequence: i8,
     pub note_duration: u64,
     pub mark_duration: u64,
+    pub show_keys: bool,
     pub receiver_address: SocketAddr,
     pub sender_address: SocketAddr,
 }
@@ -27,7 +28,7 @@ impl Options {
             assets           : value_t!(arguments.value_of("assets"), PathBuf)
                                 .ok(),
             host_address     : value_t!(arguments.value_of("host_address"), SocketAddr)
-                                .unwrap_or(receiver_address),
+                                .unwrap_or_else(|_| "127.0.0.1:9999".parse().unwrap()),
             volume           : value_t!(arguments.value_of("volume"), f32)
                                 .unwrap_or(1.0),
             record_file      : value_t!(arguments.value_of("record_file"), String)
@@ -42,6 +43,7 @@ impl Options {
                                 .unwrap_or(0),
             mark_duration    : value_t!(arguments.value_of("mark_duration"), u64)
                                 .unwrap_or(500),
+            show_keys        : arguments.is_present("show_keys"),
             receiver_address,
             sender_address   : value_t!(arguments.value_of("sender_address"), SocketAddr)
                                 .unwrap_or_else(|_| "0.0.0.0:0".parse().unwrap()),
@@ -68,7 +70,7 @@ impl Options {
                 .long("host-address")
                 .value_name("ADDRESS")
                 .takes_value(true)
-                .help("Set the host's IP Address and Port to connect to (Default: receiver address)"))
+                .help("Set the host's IP Address and Port to connect to (Default: 127.0.0.1:9999)"))
 
             .arg(Arg::with_name("volume")
                 .short("v")
@@ -130,6 +132,11 @@ impl Options {
                 .value_name("ADDRESS")
                 .takes_value(true)
                 .help("Set the IP Address and Port to which the sender socket will bind to. A port of 0 implies to bind on a random unused port (Default: 0.0.0.0:0)"))
+
+            .arg(Arg::with_name("show_keys")
+                .short("k")
+                .long("show-keys")
+                .help("Display the keyboard letter on each key (Default: off)"))
 
             .get_matches()
     }

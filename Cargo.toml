@@ -17,8 +17,17 @@ serde = "1.0"
 clap = "2.33"
 rodio = "0.9"
 yaml-rust = "0.4"
-crossterm = "0.11.1"
-crossterm_style = { version = "0.5.1", features = ["serde"] }
+# crossterm 0.11.1 pulls in the crossterm_cursor/input/screen/style/terminal
+# sub-crates with caret requirements, so a fresh resolution (e.g. plain
+# `cargo install --path .`) can select newer patch versions of those sub-crates
+# that depend on crossterm_utils 0.4, breaking the queue! macro with E0599.
+# Pin them to the exact versions crossterm 0.11.1 was built against.
+crossterm = "=0.11.1"
+crossterm_cursor = "=0.3.1"
+crossterm_input = "=0.4.1"
+crossterm_screen = "=0.3.1"
+crossterm_style = { version = "=0.5.1", features = ["serde"] }
+crossterm_terminal = "=0.3.1"
 home = "0.5.9"
 
 [[bin]]

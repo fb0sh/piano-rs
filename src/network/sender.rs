@@ -20,6 +20,14 @@ impl Sender {
     }
 
     pub fn register_self(&self, receiver_port: u16) -> Result<()> {
+        // Safety net: if someone explicitly passes --host-address 0.0.0.0,
+        // sending PlayerJoin to an unspecified address fails on macOS with
+        // EHOSTUNREACH ("No route to host"). Solo play no longer depends on
+        // this because the default host address is 127.0.0.1:9999, which
+        // loops back to the receiver on both macOS and Linux.
+        if self.host_addr.ip().is_unspecified() {
+            return Ok(());
+        }
         let bytes = bincode::serialize(&types::NetworkEvent::PlayerJoin(receiver_port)).unwrap();
         self.socket.send_to(&bytes, self.host_addr)?;
         Ok(())

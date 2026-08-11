@@ -24,16 +24,30 @@ impl Player {
 
         for base in &["a", "as", "b", "c", "cs", "d", "ds", "e", "f", "fs", "g", "gs"] {
             for frequency in -1..8_i8 {
-                Self::read_note(*base, frequency, path.clone())
-                    .map(|sample| {
-                        samples.insert(format!("{}{}", base, frequency), sample);
-                        Some(())
-                    });
+                if let Some(sample) = Self::read_note(*base, frequency, path.clone()) {
+                    samples.insert(format!("{}{}", base, frequency), sample);
+                }
             }
         }
 
         if samples.len() == 0 {
-            panic!("No sound assets found!")
+            let searched = match path {
+                Some(p) => vec![p],
+                None => vec![
+                    PathBuf::from("assets/"),
+                    home::home_dir().unwrap().join(".local/share/piano-rs/assets/"),
+                    PathBuf::from("/usr/local/share/piano-rs/assets/"),
+                    PathBuf::from("/usr/share/piano-rs/assets/"),
+                ],
+            };
+            let searched = searched.iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            panic!(
+                "No sound assets found! Searched: {}.\nRun piano-rs from the repository root, or copy the assets/ directory to one of these locations.",
+                searched
+            );
         }
 
         Player {

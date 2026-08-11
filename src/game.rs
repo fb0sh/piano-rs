@@ -23,13 +23,14 @@ pub struct PianoKeyboard {
     volume: f32,
     sound_duration: Duration,
     mark_duration: Duration,
+    show_keys: bool,
     pub color: Color,
     player: Player,
     recorder: NoteRecorder,
 }
 
 impl PianoKeyboard {
-    pub fn new(sequence: i8, volume: f32, assets: Option<PathBuf>, sound_duration: Duration, mark_duration: Duration, color: Color) -> PianoKeyboard {
+    pub fn new(sequence: i8, volume: f32, assets: Option<PathBuf>, sound_duration: Duration, mark_duration: Duration, color: Color, show_keys: bool) -> PianoKeyboard {
         let player = match assets {
             Some(assets_path) => Player::from(assets_path),
             None => Player::new(),
@@ -40,6 +41,7 @@ impl PianoKeyboard {
             volume,
             sound_duration,
             mark_duration,
+            show_keys,
             color,
             player,
             recorder: NoteRecorder::new(),
@@ -51,7 +53,7 @@ impl PianoKeyboard {
     }
 
     pub fn draw(&self) -> Result<()> {
-        pianokeys::draw()?;
+        pianokeys::draw(self.show_keys, self.sequence)?;
         Ok(())
     }
 
@@ -78,13 +80,25 @@ impl PianoKeyboard {
         match key {
             KeyEvent::Right => {
                 if self.sequence < 6 {
+                    if self.show_keys {
+                        pianokeys::hide_labels(self.sequence).unwrap();
+                    }
                     self.sequence += 1;
+                    if self.show_keys {
+                        pianokeys::show_labels(self.sequence).unwrap();
+                    }
                 }
                 None
             }
             KeyEvent::Left => {
                 if self.sequence > 0 {
+                    if self.show_keys {
+                        pianokeys::hide_labels(self.sequence).unwrap();
+                    }
                     self.sequence -= 1;
+                    if self.show_keys {
+                        pianokeys::show_labels(self.sequence).unwrap();
+                    }
                 }
                 None
             }
@@ -141,6 +155,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
         );
 
         let expected_keyboard = PianoKeyboard {
@@ -148,6 +163,7 @@ mod test {
             volume: 0.4,
             sound_duration: Duration::from_millis(7000),
             mark_duration: Duration::from_millis(500),
+            show_keys: false,
             color: Color::Blue,
             player: Player::new(),
             recorder: NoteRecorder::new(),
@@ -169,6 +185,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
         );
         keyboard.set_note_color(Color::Red);
         assert_eq!(keyboard.color, Color::Red);
@@ -183,6 +200,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
         );
 
         let event = keyboard.process_key(KeyEvent::Char('+'));
@@ -199,6 +217,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
         );
 
         let event = keyboard.process_key(KeyEvent::Char('-'));
@@ -215,6 +234,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
         );
 
         let event = keyboard.process_key(KeyEvent::Right);
@@ -231,6 +251,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
         );
 
         let event = keyboard.process_key(KeyEvent::Left);
@@ -247,6 +268,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
         );
 
         let event = keyboard.process_key(KeyEvent::Up);
@@ -263,6 +285,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
         );
 
         let event = keyboard.process_key(KeyEvent::Down);
@@ -279,6 +302,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
         );
 
         let event = keyboard.process_key(KeyEvent::Esc);
@@ -297,6 +321,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
         );
 
         let event = keyboard.process_key(KeyEvent::Char('a'));

@@ -1,5 +1,32 @@
 pub mod play;
 
+// The 37 playable keys. Every entry in `KEYS` maps to the entry with the
+// same index in `BASE_SOUNDS`, `INIT_POSES`, `WHITES` and `FACTORS`.
+const KEYS: [char; 37] = ['z', 's', 'x', 'c', 'f', 'v', 'g', 'b', 'n',
+                          'j', 'm', 'k', '1', ',', 'q', 'l', '2', '.',
+                          'w', '/', 'e', '\'', '4', 'r', '5', 't', 'y',
+                          '7', 'u', '8', 'i', '9', 'o', 'p', '[', ']', 'a'];
+
+const BASE_SOUNDS: [&str; 37] = ["a", "as", "b", "c", "cs", "d", "ds", "e", "f",
+                                 "fs", "g", "gs", "gs", "a", "a", "as", "as", "b",
+                                 "b", "c", "c", "cs", "cs", "d", "ds", "e", "f",
+                                 "fs", "g", "gs", "a", "as", "b", "c", "d", "e", "gs"];
+
+const INIT_POSES: [i16; 37] = [1, 3, 4, 7, 9, 10, 12, 13, 16,
+                               18, 19, 21, 21, 22, 22, 24, 24, 25,
+                               25, 28, 28, 30, 30, 31, 33, 34, 37,
+                               39, 40, 42, 43, 45, 46, 49, 52, 55, 0];
+
+const WHITES: [bool; 37] = [true, false, true, true, false, true, false, true, true,
+                            false, true, false, false, true, true, false, false, true,
+                            true, true, true, false, false, true, false, true, true,
+                            false, true, false, true, false, true, true, true, true, false];
+
+const FACTORS: [i8; 37] = [-1, -1, -1, 0, 0, 0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 0, 0,
+                           0, 1, 1, 1, 1, 1, 1, 1, 1,
+                           1, 1, 1, 1, 1, 1, 2, 2, 2, -1];
+
 use std::num::ParseIntError;
 use std::convert::Infallible;
 use serde_derive::{Serialize, Deserialize};
@@ -49,36 +76,16 @@ impl Note {
     }
 
     fn parse_note(base_sound: &str, frequency: i8, color: Color, duration: Duration) -> Result<Note, String> {
-        let base_sounds = ["a", "as", "b", "c", "cs", "d", "ds", "e", "f",
-                     "fs", "g", "gs", "gs", "a", "a", "as", "as", "b",
-                     "b", "c", "c", "cs", "cs", "d", "ds", "e", "f",
-                     "fs", "g", "gs", "a", "as", "b", "c", "d", "e", "gs"];
-
-        let init_poses = [1, 3, 4, 7, 9, 10, 12, 13, 16,
-                          18, 19, 21, 21, 22, 22, 24, 24, 25,
-                          25, 28, 28, 30, 30, 31, 33, 34, 37,
-                          39, 40, 42, 43, 45, 46, 49, 52, 55, 0];
-
-        let whites = [true, false, true, true, false, true, false, true, true,
-                      false, true, false, false, true, true, false, false, true,
-                      true, true, true, false, false, true, false, true, true,
-                      false, true, false, true, false, true, true, true, true, false];
-
-        let factors = [-1, -1, -1, 0, 0, 0, 0, 0, 0,
-                       0, 0, 0, 0, 0, 0, 0, 0, 0,
-                       0, 1, 1, 1, 1, 1, 1, 1, 1,
-                       1, 1, 1, 1, 1, 1, 2, 2, 2, -1];
-
-        let index = base_sounds.iter()
+        let index = BASE_SOUNDS.iter()
                        .position(|&key| key == base_sound);
 
         match index {
             Some(v) => Ok(Note {
                 sound: format!("{}{}", base_sound, frequency),
-                base: base_sounds[v].to_string(),
+                base: BASE_SOUNDS[v].to_string(),
                 frequency,
-                position: init_poses[v] + 21 * ((frequency - factors[v]) as i16),
-                white: whites[v],
+                position: INIT_POSES[v] + 21 * ((frequency - FACTORS[v]) as i16),
+                white: WHITES[v],
                 color,
                 duration,
             }),
@@ -93,21 +100,6 @@ impl Note {
 
 pub fn key_to_base_note(mut key: KeyEvent, sequence: i8) -> Option<String> {
     let mut offset: i8 = 0;
-
-    let keys = ['z', 's', 'x', 'c', 'f', 'v', 'g', 'b', 'n',
-                'j', 'm', 'k', '1', ',', 'q', 'l', '2', '.',
-                'w', '/', 'e', '\'', '4', 'r', '5', 't', 'y',
-                '7', 'u', '8', 'i', '9', 'o', 'p', '[', ']', 'a'];
-
-    let base_sounds = ["a", "as", "b", "c", "cs", "d", "ds", "e", "f",
-                 "fs", "g", "gs", "gs", "a", "a", "as", "as", "b",
-                 "b", "c", "c", "cs", "cs", "d", "ds", "e", "f",
-                 "fs", "g", "gs", "a", "as", "b", "c", "d", "e", "gs"];
-
-    let factors = [-1, -1, -1, 0, 0, 0, 0, 0, 0,
-                   0, 0, 0, 0, 0, 0, 0, 0, 0,
-                   0, 1, 1, 1, 1, 1, 1, 1, 1,
-                   1, 1, 1, 1, 1, 1, 2, 2, 2, -1];
 
     let special = ['!', '@', '$', '%', '&', '*', '(', '"', '<',
                    '>', '?', '{', '}'];
@@ -144,11 +136,11 @@ pub fn key_to_base_note(mut key: KeyEvent, sequence: i8) -> Option<String> {
             offset += 1;
         }
 
-        if let Some(i) = keys.iter().position(|&key| key == c) {
-            let factor = factors[i];
+        if let Some(i) = KEYS.iter().position(|&key| key == c) {
+            let factor = FACTORS[i];
 
             let base_note = format!("{}{}",
-                base_sounds[i].to_string(),
+                BASE_SOUNDS[i].to_string(),
                 offset + factor + sequence
             );
 
@@ -162,6 +154,17 @@ pub fn key_to_base_note(mut key: KeyEvent, sequence: i8) -> Option<String> {
     };
 
     note
+}
+
+/// Returns the keyboard letter, the base on-screen position and whether the
+/// key is white, for each of the 37 playable keys. The actual on-screen
+/// position for a given frequency `sequence` is `pos + 21 * sequence`.
+pub fn key_labels() -> Vec<(char, i16, bool)> {
+    KEYS.iter()
+        .zip(INIT_POSES.iter())
+        .zip(WHITES.iter())
+        .map(|((&key, &pos), &white)| (key, pos, white))
+        .collect()
 }
 
 #[cfg(test)]
@@ -238,6 +241,15 @@ mod test {
     fn key_to_base_note_none() {
         let base_note = super::key_to_base_note(super::KeyEvent::Char('~'), 2);
         assert!(base_note.is_none());
+    }
+
+    #[test]
+    fn key_labels_len_and_content() {
+        let labels = super::key_labels();
+        assert_eq!(labels.len(), 37);
+        assert!(labels.contains(&('z', 1, true)));
+        assert!(labels.contains(&('s', 3, false)));
+        assert!(labels.contains(&('a', 0, false)));
     }
 }
 

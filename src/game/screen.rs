@@ -19,6 +19,7 @@ use std::io::{stdout, Write};
 pub mod pianokeys {
     use crossterm::{
         queue,
+        style,
         Colorize,
         Goto,
         PrintStyledFont,
@@ -27,16 +28,104 @@ pub mod pianokeys {
 
     use std::io::{stdout, Stdout, Write};
 
+    use super::super::notes;
+
     struct Point {
         x: u16,
         y: u16,
     }
 
-    pub fn draw() -> Result<()> {
+    // Rows where the key labels are drawn. White keys are 16 rows tall with
+    // note marks on the bottom row (15); black keys are 9 rows tall with
+    // marks on row 8. Labels sit just above the mark rows.
+    const WHITE_LABEL_ROW: u16 = 14;
+    const BLACK_LABEL_BOTTOM_ROW: u16 = 7;
+
+    pub fn draw(show_keys: bool, sequence: i8) -> Result<()> {
         let mut stdout = stdout();
         print_whites(&mut stdout)?;
         print_blacks(&mut stdout)?;
+        if show_keys {
+            draw_labels(sequence, &mut stdout)?;
+        }
         stdout.flush()?;
+        Ok(())
+    }
+
+    /// Draws the keyboard letter on each playable key for the given frequency
+    /// sequence.
+    pub fn show_labels(sequence: i8) -> Result<()> {
+        let mut stdout = stdout();
+        draw_labels(sequence, &mut stdout)?;
+        stdout.flush()?;
+        Ok(())
+    }
+
+    /// Restores the key surfaces where labels were drawn, e.g. before redrawing
+    /// them at a new sequence.
+    pub fn hide_labels(sequence: i8) -> Result<()> {
+        let mut stdout = stdout();
+        for (_key, pos, white) in notes::key_labels() {
+            let screen_pos = (pos + 21 * (sequence as i16)) as u16;
+            if white {
+                queue!(
+                    stdout,
+                    Goto(screen_pos, WHITE_LABEL_ROW),
+                    PrintStyledFont("██".white())
+                )?;
+            } else {
+                queue!(
+                    stdout,
+                    Goto(screen_pos, BLACK_LABEL_BOTTOM_ROW),
+                    PrintStyledFont("█".black())
+                )?;
+                queue!(
+                    stdout,
+                    Goto(screen_pos, BLACK_LABEL_BOTTOM_ROW - 1),
+                    PrintStyledFont("█".black())
+                )?;
+            }
+        }
+        stdout.flush()?;
+        Ok(())
+    }
+
+    fn draw_labels(sequence: i8, stdout: &mut Stdout) -> Result<()> {
+        // Group the labels by their on-screen position, since some keys map to
+        // the same note (e.g. `,` and `q` are both A on the white key at 22).
+        let mut groups: Vec<(u16, Vec<char>, bool)> = Vec::new();
+        for (key, pos, white) in notes::key_labels() {
+            let screen_pos = (pos + 21 * (sequence as i16)) as u16;
+            match groups.iter_mut().find(|(p, _, w)| *p == screen_pos && *w == white) {
+                Some((_, chars, _)) => chars.push(key),
+                None => groups.push((screen_pos, vec![key], white)),
+            }
+        }
+
+        for (pos, chars, white) in groups {
+            if white {
+                // White keys have a 2-column wide body, so up to two letters
+                // fit side by side.
+                for (i, c) in chars.iter().take(2).enumerate() {
+                    queue!(
+                        stdout,
+                        Goto(pos + i as u16, WHITE_LABEL_ROW),
+                        PrintStyledFont(style(c.to_string()).black().on_white())
+                    )?;
+                }
+            } else {
+                // Black keys are 1 column wide; stack extra letters vertically.
+                let mut row = BLACK_LABEL_BOTTOM_ROW;
+                for c in chars.iter().take(2) {
+                    queue!(
+                        stdout,
+                        Goto(pos, row),
+                        PrintStyledFont(style(c.to_string()).white().on_black())
+                    )?;
+                    row -= 1;
+                }
+            }
+        }
         Ok(())
     }
 

@@ -57,6 +57,21 @@ In this case, compiling again after installing `libasound2-dev` should solve the
 $ sudo apt-get install libasound2-dev
 ```
 
+### macOS
+
+The game also builds and runs on macOS (including Apple Silicon). The crossterm 0.11
+sub-crates are pinned to exact versions in `Cargo.toml`, so a plain install works
+without any extra flags:
+
+```
+$ cargo install --path .
+```
+
+Note: the installed binary locates the note sounds in `assets/` relative to your
+current directory, `~/.local/share/piano-rs/assets/`, `/usr/local/share/piano-rs/assets/`
+or `/usr/share/piano-rs/assets/`. Run it from the repository root, or copy the
+`assets/` directory to one of those locations.
+
 ## Usage
 
 Once it compiles, run the binary with:
@@ -82,7 +97,7 @@ FLAGS:
 
 OPTIONS:
     -a, --assets <ASSETS>               Path to assets directory (Default: will autolocate) [env: ASSETS=]
-        --host-address <ADDRESS>        Set the host's IP Address and Port to connect to (Default: receiver address)
+        --host-address <ADDRESS>        Set the host's IP Address and Port to connect to (Default: 127.0.0.1:9999)
     -m, --mark-duration <DURATION>      Duration to show piano mark for, in ms (Default: 500)
     -n, --note-duration <DURATION>      Duration to play each note for, where 0 means till the end of note (Default: 0)
     -p, --play-file <FILEPATH>          Play notes from .yml file (Default: None)
@@ -93,10 +108,14 @@ OPTIONS:
         --sender-address <ADDRESS>      Set the IP Address and Port to which the sender socket will bind to. A port of 0
                                         implies to bind on a random unused port (Default: 0.0.0.0:0)
     -s, --sequence <AMOUNT>             Frequency sequence from 0 to 5 to begin with (Default: 2)
+    -k, --show-keys                     Display the keyboard letter on each key (Default: off)
     -v, --volume <AMOUNT>               Set initial volume for notes (Default: 1.0)
 ```
 
 - You can press the keys on your computer keyboard to play the piano notes.
+
+- New to the key layout? Pass `-k, --show-keys` to print the keyboard letter on each piano key.
+  The labels follow the note sequence when you shift it with <kbd>←</kbd> / <kbd>→</kbd>.
 
 - Increase or decrease the note frequency with <kbd>←</kbd> and <kbd>→</kbd> respectively
   (or hold <kbd>ctrl</kbd> or <kbd>shift</kbd> while playing).
@@ -135,6 +154,9 @@ $ ./target/release/piano-rs --host-address=192.168.1.3:9999
 ```
 
 Here, 192.168.1.3 is the IP address of the 1st machine.
+
+By default (solo mode) the sender loops back to its own receiver through `127.0.0.1:9999`,
+so no `--host-address` is needed to play by yourself — this works on both Linux and macOS.
 
 The 2nd machine should now be connected and will share the same piano-rs session as the host machine.
 Any keys you hit, should be marked with a different color indicator.
