@@ -114,7 +114,8 @@ OPTIONS:
 - You can press the keys on your computer keyboard to play the piano notes.
 
 - New to the key layout? Pass `-k, --show-keys` to print the keyboard letter on each piano key.
-  The labels follow the note sequence when you shift it with <kbd>←</kbd> / <kbd>→</kbd>.
+  The labels follow the note mapping: they shift with <kbd>←</kbd> / <kbd>→</kbd>, and while you
+  hold <kbd>Shift</kbd> (one octave up) or <kbd>Ctrl</kbd> (one octave down) they move with it.
 
 - Increase or decrease the note frequency with <kbd>←</kbd> and <kbd>→</kbd> respectively
   (or hold <kbd>ctrl</kbd> or <kbd>shift</kbd> while playing).

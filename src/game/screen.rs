@@ -41,32 +41,37 @@ pub mod pianokeys {
     const WHITE_LABEL_ROW: u16 = 14;
     const BLACK_LABEL_BOTTOM_ROW: u16 = 7;
 
-    pub fn draw(show_keys: bool, sequence: i8) -> Result<()> {
+    pub fn draw(show_keys: bool, sequence: i8, offset: i8) -> Result<()> {
         let mut stdout = stdout();
         print_whites(&mut stdout)?;
         print_blacks(&mut stdout)?;
         if show_keys {
-            draw_labels(sequence, &mut stdout)?;
+            draw_labels(sequence, offset, &mut stdout)?;
         }
         stdout.flush()?;
         Ok(())
     }
 
     /// Draws the keyboard letter on each playable key for the given frequency
-    /// sequence.
-    pub fn show_labels(sequence: i8) -> Result<()> {
+    /// sequence and modifier offset (0 normally, -1 while Ctrl is held, +1
+    /// while Shift is held).
+    pub fn show_labels(sequence: i8, offset: i8) -> Result<()> {
         let mut stdout = stdout();
-        draw_labels(sequence, &mut stdout)?;
+        draw_labels(sequence, offset, &mut stdout)?;
         stdout.flush()?;
         Ok(())
     }
 
     /// Restores the key surfaces where labels were drawn, e.g. before redrawing
-    /// them at a new sequence.
-    pub fn hide_labels(sequence: i8) -> Result<()> {
+    /// them at a new sequence or modifier offset.
+    pub fn hide_labels(sequence: i8, offset: i8) -> Result<()> {
         let mut stdout = stdout();
         for (_key, pos, white) in notes::key_labels() {
-            let screen_pos = (pos + 21 * (sequence as i16)) as u16;
+            let screen_pos = pos + 21 * (sequence as i16 + offset as i16);
+            if screen_pos < 0 {
+                continue;
+            }
+            let screen_pos = screen_pos as u16;
             if white {
                 queue!(
                     stdout,
@@ -90,12 +95,16 @@ pub mod pianokeys {
         Ok(())
     }
 
-    fn draw_labels(sequence: i8, stdout: &mut Stdout) -> Result<()> {
+    fn draw_labels(sequence: i8, offset: i8, stdout: &mut Stdout) -> Result<()> {
         // Group the labels by their on-screen position, since some keys map to
         // the same note (e.g. `,` and `q` are both A on the white key at 22).
         let mut groups: Vec<(u16, Vec<char>, bool)> = Vec::new();
         for (key, pos, white) in notes::key_labels() {
-            let screen_pos = (pos + 21 * (sequence as i16)) as u16;
+            let screen_pos = pos + 21 * (sequence as i16 + offset as i16);
+            if screen_pos < 0 {
+                continue;
+            }
+            let screen_pos = screen_pos as u16;
             match groups.iter_mut().find(|(p, _, w)| *p == screen_pos && *w == white) {
                 Some((_, chars, _)) => chars.push(key),
                 None => groups.push((screen_pos, vec![key], white)),

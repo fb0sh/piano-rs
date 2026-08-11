@@ -20,6 +20,7 @@ pub enum GameEvent {
 
 pub struct PianoKeyboard {
     sequence: i8,
+    modifier_offset: i8,
     volume: f32,
     sound_duration: Duration,
     mark_duration: Duration,
@@ -38,6 +39,7 @@ impl PianoKeyboard {
 
         PianoKeyboard {
             sequence,
+            modifier_offset: 0,
             volume,
             sound_duration,
             mark_duration,
@@ -53,7 +55,7 @@ impl PianoKeyboard {
     }
 
     pub fn draw(&self) -> Result<()> {
-        pianokeys::draw(self.show_keys, self.sequence)?;
+        pianokeys::draw(self.show_keys, self.sequence, self.modifier_offset)?;
         Ok(())
     }
 
@@ -77,15 +79,30 @@ impl PianoKeyboard {
     }
 
     pub fn process_key(&mut self, key: KeyEvent) -> Option<GameEvent> {
+        // Shift/Ctrl temporarily shift the note mapping by one octave. Keep
+        // the --show-keys labels in sync with the positions the notes will
+        // actually land on.
+        if let Some(new_offset) = notes::modifier_offset(&key) {
+            if new_offset != self.modifier_offset {
+                if self.show_keys {
+                    pianokeys::hide_labels(self.sequence, self.modifier_offset).unwrap();
+                }
+                self.modifier_offset = new_offset;
+                if self.show_keys {
+                    pianokeys::show_labels(self.sequence, self.modifier_offset).unwrap();
+                }
+            }
+        }
+
         match key {
             KeyEvent::Right => {
                 if self.sequence < 6 {
                     if self.show_keys {
-                        pianokeys::hide_labels(self.sequence).unwrap();
+                        pianokeys::hide_labels(self.sequence, self.modifier_offset).unwrap();
                     }
                     self.sequence += 1;
                     if self.show_keys {
-                        pianokeys::show_labels(self.sequence).unwrap();
+                        pianokeys::show_labels(self.sequence, self.modifier_offset).unwrap();
                     }
                 }
                 None
@@ -93,11 +110,11 @@ impl PianoKeyboard {
             KeyEvent::Left => {
                 if self.sequence > 0 {
                     if self.show_keys {
-                        pianokeys::hide_labels(self.sequence).unwrap();
+                        pianokeys::hide_labels(self.sequence, self.modifier_offset).unwrap();
                     }
                     self.sequence -= 1;
                     if self.show_keys {
-                        pianokeys::show_labels(self.sequence).unwrap();
+                        pianokeys::show_labels(self.sequence, self.modifier_offset).unwrap();
                     }
                 }
                 None
@@ -160,6 +177,7 @@ mod test {
 
         let expected_keyboard = PianoKeyboard {
             sequence: 2,
+            modifier_offset: 0,
             volume: 0.4,
             sound_duration: Duration::from_millis(7000),
             mark_duration: Duration::from_millis(500),
@@ -257,6 +275,36 @@ mod test {
         let event = keyboard.process_key(KeyEvent::Left);
         assert!(event.is_none());
         assert_eq!(keyboard.sequence, 1);
+    }
+
+    #[test]
+    fn process_shifted_key_updates_modifier_offset() {
+        let mut keyboard = PianoKeyboard::new(
+            2,
+            0.4,
+            None,
+            Duration::from_millis(7000),
+            Duration::from_millis(500),
+            Color::Blue,
+            false,
+        );
+
+        // Shift+z lands one octave higher.
+        let event = keyboard.process_key(KeyEvent::Char('Z'));
+        assert!(event.is_some());
+        assert_eq!(keyboard.modifier_offset, 1);
+
+        // A plain key returns to the base mapping.
+        keyboard.process_key(KeyEvent::Char('z'));
+        assert_eq!(keyboard.modifier_offset, 0);
+
+        // Ctrl lands one octave lower.
+        keyboard.process_key(KeyEvent::Ctrl('z'));
+        assert_eq!(keyboard.modifier_offset, -1);
+
+        // Arrow keys keep the current modifier.
+        keyboard.process_key(KeyEvent::Right);
+        assert_eq!(keyboard.modifier_offset, -1);
     }
 
     #[test]

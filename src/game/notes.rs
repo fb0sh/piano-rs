@@ -28,6 +28,13 @@ const FACTORS: [i8; 37] = [-1, -1, -1, 0, 0, 0, 0, 0, 0,
                            0, 1, 1, 1, 1, 1, 1, 1, 1,
                            1, 1, 1, 1, 1, 1, 2, 2, 2, -1];
 
+// Characters produced when the playable number/punctuation keys are pressed
+// with Shift held, and the plain key each one maps to.
+const SPECIAL_KEYS: [char; 13] = ['!', '@', '$', '%', '&', '*', '(', '"', '<',
+                                  '>', '?', '{', '}'];
+const SPECIAL_MATCHES: [char; 13] = ['1', '2', '4', '5', '7', '8', '9', '\'', ',',
+                                     '.', '/', '[', ']'];
+
 use std::num::ParseIntError;
 use std::convert::Infallible;
 use serde_derive::{Serialize, Deserialize};
@@ -102,13 +109,6 @@ impl Note {
 pub fn key_to_base_note(mut key: KeyEvent, sequence: i8) -> Option<String> {
     let mut offset: i8 = 0;
 
-    let special = ['!', '@', '$', '%', '&', '*', '(', '"', '<',
-                   '>', '?', '{', '}'];
-
-    let special_matches = ['1', '2', '4', '5', '7', '8', '9', '\'', ',',
-                           '.', '/', '[', ']'];
-
-
     // Handle terminal control characters
     if key == KeyEvent::Enter {
         // Ctrl+m sends Enter in terminal
@@ -129,11 +129,11 @@ pub fn key_to_base_note(mut key: KeyEvent, sequence: i8) -> Option<String> {
         if c.is_uppercase() {
             c = c.to_ascii_lowercase();
             offset += 1;
-        } else if special.contains(&c) {
-            let j = special.iter()
+        } else if SPECIAL_KEYS.contains(&c) {
+            let j = SPECIAL_KEYS.iter()
                            .position(|&key| key == c)
                            .unwrap();
-            c = special_matches[j];
+            c = SPECIAL_MATCHES[j];
             offset += 1;
         }
 
@@ -155,6 +155,19 @@ pub fn key_to_base_note(mut key: KeyEvent, sequence: i8) -> Option<String> {
     };
 
     note
+}
+
+/// Returns the temporary frequency offset implied by the modifier held with a
+/// key event: -1 while Ctrl is held, +1 while Shift is held, 0 for a plain
+/// key, and None for keys that don't carry a modifier (arrows, Esc, ...).
+/// Note positions and the --show-keys labels shift by 21 columns per offset.
+pub fn modifier_offset(key: &KeyEvent) -> Option<i8> {
+    match key {
+        KeyEvent::Ctrl(_) => Some(-1),
+        KeyEvent::Char(c) if c.is_uppercase() || SPECIAL_KEYS.contains(c) => Some(1),
+        KeyEvent::Char(_) => Some(0),
+        _ => None,
+    }
 }
 
 /// Returns the keyboard letter, the base on-screen position and whether the
@@ -242,6 +255,17 @@ mod test {
     fn key_to_base_note_none() {
         let base_note = super::key_to_base_note(super::KeyEvent::Char('~'), 2);
         assert!(base_note.is_none());
+    }
+
+    #[test]
+    fn modifier_offset_tracking() {
+        use super::KeyEvent;
+        assert_eq!(super::modifier_offset(&KeyEvent::Ctrl('z')), Some(-1));
+        assert_eq!(super::modifier_offset(&KeyEvent::Char('Z')), Some(1));
+        assert_eq!(super::modifier_offset(&KeyEvent::Char('!')), Some(1));
+        assert_eq!(super::modifier_offset(&KeyEvent::Char('z')), Some(0));
+        assert_eq!(super::modifier_offset(&KeyEvent::Right), None);
+        assert_eq!(super::modifier_offset(&KeyEvent::Esc), None);
     }
 
     #[test]
