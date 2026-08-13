@@ -316,13 +316,18 @@ pub mod pianokeys {
     }
 
     /// Text shown in the status row below the pedal. All fields are fixed
-    /// width so the line never changes length.
+    /// width so the line never changes length. A duration of 0 means "play
+    /// until the sample ends" (the longest note), which is shown as `ring`
+    /// so the display never lies about the sound.
     pub fn status_text(volume: f32, duration: Duration, sequence: i8) -> String {
+        let note_field = if duration.is_zero() {
+            "ring ".to_string()
+        } else {
+            format!("{:.2}s", duration.as_millis() as f64 / 1000.0)
+        };
         format!(
-            "Volume: {:.2}  Note: {:.2}s  Octave: {}",
-            volume,
-            duration.as_millis() as f64 / 1000.0,
-            sequence
+            "Volume: {:.2}  Note: {}  Octave: {}",
+            volume, note_field, sequence
         )
     }
 
@@ -434,6 +439,9 @@ mod test {
     fn status_text_formats_controls() {
         let text = pianokeys::status_text(0.4, Duration::from_millis(7000), 2);
         assert_eq!(text, "Volume: 0.40  Note: 7.00s  Octave: 2");
+        // 0 means "until the sample ends"; show that honestly.
+        let ring = pianokeys::status_text(0.4, Duration::from_millis(0), 2);
+        assert_eq!(ring, "Volume: 0.40  Note: ring   Octave: 2");
     }
 
     #[test]
@@ -442,6 +450,7 @@ mod test {
             pianokeys::status_text(0.05, Duration::from_millis(50), 0),
             pianokeys::status_text(1.2, Duration::from_millis(8000), 6),
             pianokeys::status_text(0.4, Duration::from_millis(500), 2),
+            pianokeys::status_text(0.4, Duration::from_millis(0), 2),
         ];
         assert!(texts.iter().all(|t| t.len() == texts[0].len()));
     }
