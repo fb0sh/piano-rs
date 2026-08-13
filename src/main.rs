@@ -146,7 +146,7 @@ fn main() -> Result<()> {
         Duration::from_millis(arguments.mark_duration),
         Color::Blue,
         arguments.show_keys,
-        arguments.show_keys || arguments.central,
+        arguments.show_keys,
         x_offset,
         y_offset,
     )));

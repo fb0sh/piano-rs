@@ -146,7 +146,7 @@ OPTIONS:
 - A status row below the pedal shows the current volume, note length and octave, updating as
   you press <kbd>+</kbd>/<kbd>-</kbd>, <kbd>↑</kbd>/<kbd>↓</kbd> and <kbd>←</kbd>/<kbd>→</kbd>.
 
-- With `-k, --show-keys` or `-c, --central`, a key hint panel is drawn at the top-right corner
+- With `-k, --show-keys`, a key hint panel is drawn at the top-right corner
   of the terminal: `Shift+Key` octave up, `Alt+Key` octave down, `Arrows` change octave,
   `Space` sustain and `Backspace` sustain lock.
 
