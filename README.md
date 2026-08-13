@@ -104,7 +104,8 @@ OPTIONS:
     -p, --play-file <FILEPATH>          Play notes from .yml file (Default: None)
     -t, --playback-tempo <AMOUNT>       Set playback speed when playing from file (Default: 1.0)
         --receiver-address <ADDRESS>    Set the IP Address and Port to which the receiver socket will bind to (Default:
-                                        0.0.0.0:9999)
+                                        127.0.0.1:9999, loopback only; pass 0.0.0.0:9999 to accept multiplayer
+                                        connections)
     -r, --record-file <FILEPATH>        Record notes to .yml file (Default: None)
         --sender-address <ADDRESS>      Set the IP Address and Port to which the sender socket will bind to. A port of 0
                                         implies to bind on a random unused port (Default: 0.0.0.0:0)
@@ -158,33 +159,36 @@ Press the <kbd>Esc</kbd> key to exit the game.
 
 piano-rs is multiplayer! It can also be enjoyed with friends by sharing the same piano session. Here's how to setup:
 
-On the 1st machine, you would launch piano-rs as usual with:
+By default (solo mode) the receiver socket binds to `127.0.0.1:9999` — loopback only, so playing by
+yourself exposes no server and triggers no firewall prompt. To play together, **every machine that
+should receive notes must explicitly open its receiver** with `--receiver-address 0.0.0.0:9999` (or
+its own LAN address):
+
+On the 1st machine, launch piano-rs with the receiver open:
 ```
-$ cargo run --release
+$ cargo run --release -- --receiver-address=0.0.0.0:9999
 ```
 or
 ```
-$ ./target/release/piano-rs
+$ ./target/release/piano-rs --receiver-address=0.0.0.0:9999
 ```
 
-On the 2nd machine, you would then pass the IP address of the receiver socket of the 1st machine, which
-by default binds to `0.0.0.0:9999` and can be overriden with `--receiver-address`. That means, you would
-run something like this on the 2nd machine to connect to the 1st machine's piano-rs session:
+On the 2nd machine, open its own receiver as well (so the 1st machine can send notes back) and pass
+the 1st machine's address to connect to its session:
 ```
-$ cargo run --release -- --host-address=192.168.1.3:9999
+$ cargo run --release -- --receiver-address=0.0.0.0:9999 --host-address=192.168.1.3:9999
 ```
 or
 ```
-$ ./target/release/piano-rs --host-address=192.168.1.3:9999
+$ ./target/release/piano-rs --receiver-address=0.0.0.0:9999 --host-address=192.168.1.3:9999
 ```
 
-Here, 192.168.1.3 is the IP address of the 1st machine.
-
-By default (solo mode) the sender loops back to its own receiver through `127.0.0.1:9999`,
-so no `--host-address` is needed to play by yourself — this works on both Linux and macOS.
+Here, 192.168.1.3 is the IP address of the 1st machine. Both machines must be able to reach each
+other on UDP port 9999 (or whichever port you pick).
 
 The 2nd machine should now be connected and will share the same piano-rs session as the host machine.
-Any keys you hit, should be marked with a different color indicator.
+Any keys you hit, should be marked with a different color indicator (each player gets a color assigned
+by the order they joined).
 
 Similar to the way you connected the 2nd machine, you can connect any number of machines to share
 the same piano-rs session!

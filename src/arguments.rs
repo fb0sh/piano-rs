@@ -23,7 +23,7 @@ impl Options {
     pub fn read() -> Options {
         let arguments = Self::get_arguments();
         let receiver_address = value_t!(arguments.value_of("receiver_address"), SocketAddr)
-            .unwrap_or_else(|_| "0.0.0.0:9999".parse().unwrap());
+            .unwrap_or_else(|_| "127.0.0.1:9999".parse().unwrap());
 
         let parsed_arguments = Options {
             assets           : value_t!(arguments.value_of("assets"), PathBuf)
@@ -127,7 +127,7 @@ impl Options {
                 .long("receiver-address")
                 .value_name("ADDRESS")
                 .takes_value(true)
-                .help("Set the IP Address and Port to which the receiver socket will bind to (Default: 0.0.0.0:9999)"))
+                .help("Set the IP Address and Port to which the receiver socket will bind to (Default: 127.0.0.1:9999, loopback only; pass 0.0.0.0:9999 to accept multiplayer connections)"))
 
             .arg(Arg::with_name("sender_address")
                 .long("sender-address")
