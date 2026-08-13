@@ -14,6 +14,7 @@ pub struct Options {
     pub note_duration: u64,
     pub mark_duration: u64,
     pub show_keys: bool,
+    pub central: bool,
     pub receiver_address: SocketAddr,
     pub sender_address: SocketAddr,
 }
@@ -44,6 +45,7 @@ impl Options {
             mark_duration    : value_t!(arguments.value_of("mark_duration"), u64)
                                 .unwrap_or(500),
             show_keys        : arguments.is_present("show_keys"),
+            central          : arguments.is_present("central"),
             receiver_address,
             sender_address   : value_t!(arguments.value_of("sender_address"), SocketAddr)
                                 .unwrap_or_else(|_| "0.0.0.0:0".parse().unwrap()),
@@ -137,6 +139,11 @@ impl Options {
                 .short("k")
                 .long("show-keys")
                 .help("Display the keyboard letter on each key (Default: off)"))
+
+            .arg(Arg::with_name("central")
+                .short("c")
+                .long("central")
+                .help("Vertically and horizontally center the piano in the terminal (Default: off)"))
 
             .get_matches()
     }

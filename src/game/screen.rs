@@ -41,12 +41,12 @@ pub mod pianokeys {
     const WHITE_LABEL_ROW: u16 = 14;
     const BLACK_LABEL_BOTTOM_ROW: u16 = 7;
 
-    pub fn draw(show_keys: bool, sequence: i8, offset: i8) -> Result<()> {
+    pub fn draw(show_keys: bool, sequence: i8, offset: i8, x_offset: u16, y_offset: u16) -> Result<()> {
         let mut stdout = stdout();
-        print_whites(&mut stdout)?;
-        print_blacks(&mut stdout)?;
+        print_whites(&mut stdout, x_offset, y_offset)?;
+        print_blacks(&mut stdout, x_offset, y_offset)?;
         if show_keys {
-            draw_labels(sequence, offset, &mut stdout)?;
+            draw_labels(sequence, offset, x_offset, y_offset, &mut stdout)?;
         }
         stdout.flush()?;
         Ok(())
@@ -54,20 +54,20 @@ pub mod pianokeys {
 
     /// Draws the keyboard letter on each playable key for the given frequency
     /// sequence and modifier offset (0 normally, -1 while Ctrl is held, +1
-    /// while Shift is held).
-    pub fn show_labels(sequence: i8, offset: i8) -> Result<()> {
+    /// while Shift is held). `x_offset`/`y_offset` shift the whole keyboard.
+    pub fn show_labels(sequence: i8, offset: i8, x_offset: u16, y_offset: u16) -> Result<()> {
         let mut stdout = stdout();
-        draw_labels(sequence, offset, &mut stdout)?;
+        draw_labels(sequence, offset, x_offset, y_offset, &mut stdout)?;
         stdout.flush()?;
         Ok(())
     }
 
     /// Restores the key surfaces where labels were drawn, e.g. before redrawing
     /// them at a new sequence or modifier offset.
-    pub fn hide_labels(sequence: i8, offset: i8) -> Result<()> {
+    pub fn hide_labels(sequence: i8, offset: i8, x_offset: u16, y_offset: u16) -> Result<()> {
         let mut stdout = stdout();
         for (_key, pos, white) in notes::key_labels() {
-            let screen_pos = pos + 21 * (sequence as i16 + offset as i16);
+            let screen_pos = pos + 21 * (sequence as i16 + offset as i16) + x_offset as i16;
             if screen_pos < 0 {
                 continue;
             }
@@ -75,18 +75,18 @@ pub mod pianokeys {
             if white {
                 queue!(
                     stdout,
-                    Goto(screen_pos, WHITE_LABEL_ROW),
+                    Goto(screen_pos, WHITE_LABEL_ROW + y_offset),
                     PrintStyledFont("██".white())
                 )?;
             } else {
                 queue!(
                     stdout,
-                    Goto(screen_pos, BLACK_LABEL_BOTTOM_ROW),
+                    Goto(screen_pos, BLACK_LABEL_BOTTOM_ROW + y_offset),
                     PrintStyledFont("█".black())
                 )?;
                 queue!(
                     stdout,
-                    Goto(screen_pos, BLACK_LABEL_BOTTOM_ROW - 1),
+                    Goto(screen_pos, BLACK_LABEL_BOTTOM_ROW + y_offset - 1),
                     PrintStyledFont("█".black())
                 )?;
             }
@@ -95,12 +95,12 @@ pub mod pianokeys {
         Ok(())
     }
 
-    fn draw_labels(sequence: i8, offset: i8, stdout: &mut Stdout) -> Result<()> {
+    fn draw_labels(sequence: i8, offset: i8, x_offset: u16, y_offset: u16, stdout: &mut Stdout) -> Result<()> {
         // Group the labels by their on-screen position, since some keys map to
         // the same note (e.g. `,` and `q` are both A on the white key at 22).
         let mut groups: Vec<(u16, Vec<char>, bool)> = Vec::new();
         for (key, pos, white) in notes::key_labels() {
-            let screen_pos = pos + 21 * (sequence as i16 + offset as i16);
+            let screen_pos = pos + 21 * (sequence as i16 + offset as i16) + x_offset as i16;
             if screen_pos < 0 {
                 continue;
             }
@@ -118,13 +118,13 @@ pub mod pianokeys {
                 for (i, c) in chars.iter().take(2).enumerate() {
                     queue!(
                         stdout,
-                        Goto(pos + i as u16, WHITE_LABEL_ROW),
+                        Goto(pos + i as u16, WHITE_LABEL_ROW + y_offset),
                         PrintStyledFont(style(c.to_string()).black().on_white())
                     )?;
                 }
             } else {
                 // Black keys are 1 column wide; stack extra letters vertically.
-                let mut row = BLACK_LABEL_BOTTOM_ROW;
+                let mut row = BLACK_LABEL_BOTTOM_ROW + y_offset;
                 for c in chars.iter().take(2) {
                     queue!(
                         stdout,
@@ -161,9 +161,9 @@ pub mod pianokeys {
         Ok(())
     }
 
-    fn print_whites(stdout: &mut Stdout) -> Result<()> {
+    fn print_whites(stdout: &mut Stdout, x_offset: u16, y_offset: u16) -> Result<()> {
         for key in 0..58 {
-            let initial_point = Point { x: key * 3, y: 0 };
+            let initial_point = Point { x: key * 3 + x_offset, y: y_offset };
             print_whitekey(initial_point, stdout)?;
         }
         Ok(())
@@ -181,27 +181,27 @@ pub mod pianokeys {
         Ok(())
     }
 
-    fn print_blacks(stdout: &mut Stdout) -> Result<()> {
+    fn print_blacks(stdout: &mut Stdout, x_offset: u16, y_offset: u16) -> Result<()> {
         // First black key is lonely
-        let mut initial_point = Point { x: 3, y: 0 };
+        let mut initial_point = Point { x: 3 + x_offset, y: y_offset };
         print_blackkey(initial_point, stdout)?;
 
         for x in 0..8 {
-            let g1k1 = x * 21 + 9;
+            let g1k1 = x * 21 + 9 + x_offset;
             let g1k2 = g1k1 + 3;
-            initial_point = Point { x: g1k1, y: 0 };
+            initial_point = Point { x: g1k1, y: y_offset };
             print_blackkey(initial_point, stdout)?;
-            initial_point = Point { x: g1k2, y: 0 };
+            initial_point = Point { x: g1k2, y: y_offset };
             print_blackkey(initial_point, stdout)?;
 
             let g2k1 = g1k2 + 6;
             let g2k2 = g2k1 + 3;
             let g2k3 = g2k2 + 3;
-            initial_point = Point { x: g2k1, y: 0 };
+            initial_point = Point { x: g2k1, y: y_offset };
             print_blackkey(initial_point, stdout)?;
-            initial_point = Point { x: g2k2, y: 0 };
+            initial_point = Point { x: g2k2, y: y_offset };
             print_blackkey(initial_point, stdout)?;
-            initial_point = Point { x: g2k3, y: 0 };
+            initial_point = Point { x: g2k3, y: y_offset };
             print_blackkey(initial_point, stdout)?;
         }
 
@@ -209,7 +209,7 @@ pub mod pianokeys {
     }
 }
 
-pub fn mark_note(pos: i16, white: bool, color: Color, duration: time::Duration) {
+pub fn mark_note(pos: i16, white: bool, color: Color, duration: time::Duration, x_offset: u16, y_offset: u16) {
     if white {
         // This causes a compiler panic!
         /* queue!( */
@@ -220,7 +220,7 @@ pub fn mark_note(pos: i16, white: bool, color: Color, duration: time::Duration) 
 
         queue!(
             stdout(),
-            Goto(pos as u16, 15),
+            Goto(pos as u16 + x_offset, 15 + y_offset),
             PrintStyledFont(style("██").with(color))
         ).unwrap();
 
@@ -228,7 +228,7 @@ pub fn mark_note(pos: i16, white: bool, color: Color, duration: time::Duration) 
     } else {
         queue!(
             stdout(),
-            Goto(pos as u16, 8),
+            Goto(pos as u16 + x_offset, 8 + y_offset),
             PrintStyledFont(style("█").with(color))
         ).unwrap();
     }
@@ -238,13 +238,13 @@ pub fn mark_note(pos: i16, white: bool, color: Color, duration: time::Duration) 
         if white {
         queue!(
             stdout(),
-            Goto(pos as u16, 15),
+            Goto(pos as u16 + x_offset, 15 + y_offset),
             PrintStyledFont("██".white())
         ).unwrap();
         } else {
         queue!(
             stdout(),
-            Goto(pos as u16, 8),
+            Goto(pos as u16 + x_offset, 8 + y_offset),
             PrintStyledFont("█".black())
         ).unwrap();
         }

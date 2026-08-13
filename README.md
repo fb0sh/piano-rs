@@ -91,8 +91,10 @@ USAGE:
     piano-rs [OPTIONS]
 
 FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+    -c, --central      Vertically and horizontally center the piano in the terminal (Default: off)
+    -h, --help         Prints help information
+    -k, --show-keys    Display the keyboard letter on each key (Default: off)
+    -V, --version      Prints version information
 
 OPTIONS:
     -a, --assets <ASSETS>               Path to assets directory (Default: embedded in binary) [env: ASSETS=]
@@ -110,6 +112,10 @@ OPTIONS:
     -k, --show-keys                     Display the keyboard letter on each key (Default: off)
     -v, --volume <AMOUNT>               Set initial volume for notes (Default: 1.0)
 ```
+
+- The piano is drawn in the top-left corner of the terminal by default. Pass `-c, --central`
+  to center it instead: the keyboard sits in the middle of the terminal with equal margins
+  above and below (and on both sides when the terminal is wider than the keyboard).
 
 - You can press the keys on your computer keyboard to play the piano notes.
 

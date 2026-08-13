@@ -13,6 +13,7 @@ use crossterm::{
     ClearType,
     InputEvent,
     SyncReader,
+    Crossterm,
 };
 use crossterm_style::Color;
 
@@ -106,6 +107,19 @@ fn play_from_file(play_file: PathBuf, tempo: f32, keyboard: &Arc<Mutex<PianoKeyb
 fn main() -> Result<()> {
     let arguments = Options::read();
 
+    // With --central, shift the whole keyboard so that it sits in the middle
+    // of the terminal: equal margins above and below (and on both sides when
+    // the terminal is wider than the 175-column keyboard). Without the flag
+    // the keyboard stays pinned to the top-left corner, as before.
+    let (x_offset, y_offset) = if arguments.central {
+        let (width, height) = Crossterm::new().terminal().size().unwrap_or((80, 24));
+        let x_offset = ((width as i16 - 175) / 2).max(0) as u16;
+        let y_offset = ((height as i16 - 16) / 2).max(0) as u16;
+        (x_offset, y_offset)
+    } else {
+        (0, 0)
+    };
+
     let receiver_address = arguments.receiver_address;
     let event_receiver = Receiver::new(receiver_address)?;
     let event_sender = Arc::new(Mutex::new(Sender::new(arguments.sender_address, arguments.host_address)?));
@@ -123,6 +137,8 @@ fn main() -> Result<()> {
         Duration::from_millis(arguments.mark_duration),
         Color::Blue,
         arguments.show_keys,
+        x_offset,
+        y_offset,
     )));
 
     keyboard.lock().unwrap().draw().unwrap();
