@@ -42,11 +42,15 @@ pub mod pianokeys {
     const WHITE_LABEL_ROW: u16 = 14;
     const BLACK_LABEL_BOTTOM_ROW: u16 = 7;
 
-    // The sustain pedal hangs below the keyboard body: it starts one row after
-    // the 16-row-tall white keys and spans the same width as the keyboard.
+    // The white keys are 3 columns wide and there are 58 of them, so the
+    // keyboard body is 175 columns wide. The sustain pedal hangs below it one
+    // row after the 16-row-tall keys, centered like a real piano pedal and
+    // sized to a fraction of the keyboard width.
+    const KEYBOARD_WIDTH: u16 = 175;
     const PEDAL_ROW: u16 = 17;
     const PEDAL_HEIGHT: u16 = 3;
-    const PEDAL_WIDTH: u16 = 175;
+    const PEDAL_WIDTH: u16 = 30;
+    const PEDAL_X: u16 = (KEYBOARD_WIDTH - PEDAL_WIDTH) / 2;
 
     pub fn draw(show_keys: bool, sequence: i8, offset: i8, x_offset: u16, y_offset: u16) -> Result<()> {
         let mut stdout = stdout();
@@ -215,9 +219,9 @@ pub mod pianokeys {
         Ok(())
     }
 
-    /// Draws the sustain pedal bar below the keyboard (the space bar toggles
-    /// it). `on` lights the pedal up while sustain is active; with `show_keys`
-    /// the SPACE label is drawn centered on the pedal.
+    /// Draws the sustain pedal below the keyboard (the space bar toggles it).
+    /// `on` lights the pedal up while sustain is active; with `show_keys` the
+    /// SPACE label is drawn centered on the pedal.
     pub fn draw_pedal(on: bool, show_keys: bool, x_offset: u16, y_offset: u16) -> Result<()> {
         let mut stdout = stdout();
         let bar_color = if on { Color::Yellow } else { Color::DarkGrey };
@@ -226,7 +230,7 @@ pub mod pianokeys {
             for x in 0..PEDAL_WIDTH {
                 queue!(
                     stdout,
-                    Goto(x + x_offset, PEDAL_ROW + row + y_offset),
+                    Goto(PEDAL_X + x + x_offset, PEDAL_ROW + row + y_offset),
                     PrintStyledFont(style("█").with(bar_color))
                 )?;
             }
@@ -234,7 +238,7 @@ pub mod pianokeys {
 
         if show_keys {
             let label = "SPACE";
-            let start_x = x_offset + (PEDAL_WIDTH - label.len() as u16) / 2;
+            let start_x = PEDAL_X + x_offset + (PEDAL_WIDTH - label.len() as u16) / 2;
             let label_row = PEDAL_ROW + 1 + y_offset;
             for (i, c) in label.chars().enumerate() {
                 let cell = if on {

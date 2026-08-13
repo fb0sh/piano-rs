@@ -129,10 +129,10 @@ OPTIONS:
 - Increase or decrease the note frequency with <kbd>←</kbd> and <kbd>→</kbd> respectively
   (or hold <kbd>ctrl</kbd> or <kbd>shift</kbd> while playing).
 
-- Press <kbd>Space</kbd> to toggle the sustain pedal, drawn below the keyboard like a
-  real piano's pedal board (it lights up while sustain is active). While the pedal is
-  down, notes ring out to their natural end instead of stopping after the configured
-  note duration. With `-k, --show-keys`, the pedal shows its `SPACE` key label.
+- Press <kbd>Space</kbd> to toggle the sustain pedal, drawn as a compact pedal centered
+  below the keyboard like a real piano (it lights up while sustain is active). While the
+  pedal is down, notes ring out to their natural end instead of stopping after the
+  configured note duration. With `-k, --show-keys`, the pedal shows its `SPACE` key label.
 
 - Adjust the duration for how long the notes play for with <kbd>↑</kbd> and <kbd>↓</kbd>.
 
