@@ -25,6 +25,7 @@ pub struct PianoKeyboard {
     sound_duration: Duration,
     mark_duration: Duration,
     show_keys: bool,
+    show_hints: bool,
     x_offset: u16,
     y_offset: u16,
     pedal_on: bool,
@@ -34,7 +35,7 @@ pub struct PianoKeyboard {
 }
 
 impl PianoKeyboard {
-    pub fn new(sequence: i8, volume: f32, assets: Option<PathBuf>, sound_duration: Duration, mark_duration: Duration, color: Color, show_keys: bool, x_offset: u16, y_offset: u16) -> PianoKeyboard {
+    pub fn new(sequence: i8, volume: f32, assets: Option<PathBuf>, sound_duration: Duration, mark_duration: Duration, color: Color, show_keys: bool, show_hints: bool, x_offset: u16, y_offset: u16) -> PianoKeyboard {
         let player = match assets {
             Some(assets_path) => Player::from(assets_path),
             None => Player::new(),
@@ -47,6 +48,7 @@ impl PianoKeyboard {
             sound_duration,
             mark_duration,
             show_keys,
+            show_hints,
             x_offset,
             y_offset,
             pedal_on: false,
@@ -63,7 +65,17 @@ impl PianoKeyboard {
     pub fn draw(&self) -> Result<()> {
         pianokeys::draw(self.show_keys, self.sequence, self.modifier_offset, self.x_offset, self.y_offset)?;
         pianokeys::draw_pedal(self.pedal_on, self.show_keys, self.x_offset, self.y_offset)?;
+        pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset)?;
+        pianokeys::draw_hints(self.show_hints)?;
         Ok(())
+    }
+
+    /// Moves the instrument on screen, e.g. when the terminal is resized and
+    /// the centering offsets are recomputed. The next full draw uses the new
+    /// position.
+    pub fn set_offsets(&mut self, x_offset: u16, y_offset: u16) {
+        self.x_offset = x_offset;
+        self.y_offset = y_offset;
     }
 
     /// Ring duration for a note: full sample (0 ms) while the sustain pedal
@@ -127,6 +139,7 @@ impl PianoKeyboard {
                     if self.show_keys {
                         pianokeys::show_labels(self.sequence, self.modifier_offset, self.x_offset, self.y_offset).unwrap();
                     }
+                    pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset).unwrap();
                 }
                 None
             }
@@ -139,6 +152,7 @@ impl PianoKeyboard {
                     if self.show_keys {
                         pianokeys::show_labels(self.sequence, self.modifier_offset, self.x_offset, self.y_offset).unwrap();
                     }
+                    pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset).unwrap();
                 }
                 None
             }
@@ -146,25 +160,30 @@ impl PianoKeyboard {
                 // The note sound files are maximum 8s in length
                 if self.sound_duration < Duration::from_millis(8000) {
                     self.sound_duration += Duration::from_millis(50);
+                    pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset).unwrap();
                 }
                 None
             }
             KeyEvent::Down => {
                 if self.sound_duration > Duration::new(0, 0) {
                     self.sound_duration -= Duration::from_millis(50);
+                    pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset).unwrap();
                 }
                 None
             }
             KeyEvent::Char('+') => {
                 self.volume += 0.1;
+                pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset).unwrap();
                 None
             }
             KeyEvent::Char('-') => {
                 self.volume -= 0.1;
+                pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset).unwrap();
                 None
             }
-            KeyEvent::Char(' ') => {
-                // Space bar is the sustain pedal: each press toggles it.
+            KeyEvent::Char(' ') | KeyEvent::Backspace => {
+                // Space bar is the sustain pedal, Backspace latches it: each
+                // press toggles sustain and relights the pedal.
                 self.pedal_on = !self.pedal_on;
                 pianokeys::draw_pedal(self.pedal_on, self.show_keys, self.x_offset, self.y_offset).unwrap();
                 None
@@ -202,6 +221,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
+            false,
             0,
             0,
         );
@@ -213,6 +233,7 @@ mod test {
             sound_duration: Duration::from_millis(7000),
             mark_duration: Duration::from_millis(500),
             show_keys: false,
+            show_hints: false,
             x_offset: 0,
             y_offset: 0,
             pedal_on: false,
@@ -238,6 +259,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
+            false,
             0,
             0,
         );
@@ -254,6 +276,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
             false,
             0,
             0,
@@ -274,6 +297,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
+            false,
             0,
             0,
         );
@@ -292,6 +316,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
             false,
             0,
             0,
@@ -312,6 +337,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
+            false,
             0,
             0,
         );
@@ -330,6 +356,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
             false,
             0,
             0,
@@ -363,6 +390,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
+            false,
             0,
             0,
         );
@@ -382,6 +410,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
+            false,
             0,
             0,
         );
@@ -400,6 +429,7 @@ mod test {
             Duration::from_millis(300),
             Duration::from_millis(500),
             Color::Blue,
+            false,
             false,
             0,
             0,
@@ -429,6 +459,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
+            false,
             0,
             0,
         );
@@ -446,6 +477,52 @@ mod test {
     }
 
     #[test]
+    fn process_backspace_sustain_lock_key() {
+        let mut keyboard = PianoKeyboard::new(
+            2,
+            0.4,
+            None,
+            Duration::from_millis(7000),
+            Duration::from_millis(500),
+            Color::Blue,
+            false,
+            false,
+            0,
+            0,
+        );
+
+        // Backspace latches the sustain pedal on and never produces a note.
+        let event = keyboard.process_key(KeyEvent::Backspace);
+        assert!(event.is_none());
+        assert_eq!(keyboard.pedal_on, true);
+
+        // Pressing it again unlocks the pedal.
+        let event = keyboard.process_key(KeyEvent::Backspace);
+        assert!(event.is_none());
+        assert_eq!(keyboard.pedal_on, false);
+    }
+
+    #[test]
+    fn set_offsets_moves_the_keyboard() {
+        let mut keyboard = PianoKeyboard::new(
+            2,
+            0.4,
+            None,
+            Duration::from_millis(7000),
+            Duration::from_millis(500),
+            Color::Blue,
+            false,
+            false,
+            0,
+            0,
+        );
+
+        assert_eq!((keyboard.x_offset, keyboard.y_offset), (0, 0));
+        keyboard.set_offsets(12, 4);
+        assert_eq!((keyboard.x_offset, keyboard.y_offset), (12, 4));
+    }
+
+    #[test]
     fn process_quit_key() {
         let mut keyboard = PianoKeyboard::new(
             2,
@@ -454,6 +531,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
             false,
             0,
             0,
@@ -475,6 +553,7 @@ mod test {
             Duration::from_millis(7000),
             Duration::from_millis(500),
             Color::Blue,
+            false,
             false,
             0,
             0,

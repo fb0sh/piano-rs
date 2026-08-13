@@ -118,8 +118,12 @@ pub fn key_to_base_note(mut key: KeyEvent, sequence: i8) -> Option<String> {
         key = KeyEvent::Ctrl('i');
     }
 
-    // Translate Ctrl+<character> to <character>
+    // Translate Ctrl+<character> and Alt+<character> to <character>, playing
+    // the note one octave lower, like Shift plays it one octave higher.
     if let KeyEvent::Ctrl(c) = key {
+        key = KeyEvent::Char(c);
+        offset -= 1;
+    } else if let KeyEvent::Alt(c) = key {
         key = KeyEvent::Char(c);
         offset -= 1;
     }
@@ -158,13 +162,13 @@ pub fn key_to_base_note(mut key: KeyEvent, sequence: i8) -> Option<String> {
 }
 
 /// Returns the temporary frequency offset implied by the modifier held with a
-/// key event: -1 while Ctrl is held, +1 while Shift is held, 0 for a plain
-/// key, and None for keys that don't carry a modifier (arrows, Esc, ...).
+/// key event: -1 while Ctrl or Alt is held, +1 while Shift is held, 0 for a
+/// plain key, and None for keys that don't carry a modifier (arrows, Esc, ...).
 /// Note positions and the --show-keys labels shift by 21 columns per offset.
 /// The space bar is the sustain pedal, so it doesn't carry a note modifier.
 pub fn modifier_offset(key: &KeyEvent) -> Option<i8> {
     match key {
-        KeyEvent::Ctrl(_) => Some(-1),
+        KeyEvent::Ctrl(_) | KeyEvent::Alt(_) => Some(-1),
         KeyEvent::Char(c) if c.is_uppercase() || SPECIAL_KEYS.contains(c) => Some(1),
         KeyEvent::Char(' ') => None,
         KeyEvent::Char(_) => Some(0),
@@ -260,13 +264,26 @@ mod test {
     }
 
     #[test]
+    fn key_to_base_note_alt_shifts_octave_down() {
+        use super::KeyEvent;
+        // Alt+<key> plays the note one octave lower (same as Ctrl).
+        let base_note = super::key_to_base_note(KeyEvent::Alt('a'), 2);
+        match base_note {
+            Some(v) => assert_eq!(v, "gs0"),
+            None => panic!("The key should have been parsable!"),
+        }
+    }
+
+    #[test]
     fn modifier_offset_tracking() {
         use super::KeyEvent;
         assert_eq!(super::modifier_offset(&KeyEvent::Ctrl('z')), Some(-1));
+        assert_eq!(super::modifier_offset(&KeyEvent::Alt('z')), Some(-1));
         assert_eq!(super::modifier_offset(&KeyEvent::Char('Z')), Some(1));
         assert_eq!(super::modifier_offset(&KeyEvent::Char('!')), Some(1));
         assert_eq!(super::modifier_offset(&KeyEvent::Char('z')), Some(0));
         assert_eq!(super::modifier_offset(&KeyEvent::Char(' ')), None);
+        assert_eq!(super::modifier_offset(&KeyEvent::Backspace), None);
         assert_eq!(super::modifier_offset(&KeyEvent::Right), None);
         assert_eq!(super::modifier_offset(&KeyEvent::Esc), None);
     }

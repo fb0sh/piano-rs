@@ -21,12 +21,14 @@ pub mod pianokeys {
         queue,
         style,
         Colorize,
+        Crossterm,
         Goto,
         PrintStyledFont,
         Result,
     };
 
     use std::io::{stdout, Stdout, Write};
+    use std::time::Duration;
 
     use super::super::notes;
     use super::Color;
@@ -43,14 +45,29 @@ pub mod pianokeys {
     const BLACK_LABEL_BOTTOM_ROW: u16 = 7;
 
     // The white keys are 3 columns wide and there are 58 of them, so the
-    // keyboard body is 175 columns wide. The sustain pedal hangs below it one
-    // row after the 16-row-tall keys, centered like a real piano pedal and
-    // sized to a fraction of the keyboard width.
-    const KEYBOARD_WIDTH: u16 = 175;
+    // keyboard body is 175 columns wide. Below the keys hangs the sustain
+    // pedal, then a status row; together the instrument is 21 rows tall.
+    pub const KEYBOARD_WIDTH: u16 = 175;
+    pub const INSTRUMENT_HEIGHT: u16 = 21; // 16 key rows + 1 gap + 3 pedal + 1 status
+
+    // On a real piano the sustain pedal sits on the right of the pedal board,
+    // so the pedal hangs near the right edge of the keyboard, sized to a
+    // fraction of the keyboard width.
     const PEDAL_ROW: u16 = 17;
     const PEDAL_HEIGHT: u16 = 3;
     const PEDAL_WIDTH: u16 = 30;
-    const PEDAL_X: u16 = (KEYBOARD_WIDTH - PEDAL_WIDTH) / 2;
+    const PEDAL_X: u16 = KEYBOARD_WIDTH - PEDAL_WIDTH - 8;
+    const STATUS_ROW: u16 = 20;
+
+    // Key hint lines shown at the top-right corner of the terminal (with
+    // `-k` or `-c`): every piano control key gets on-screen feedback.
+    const HINT_ROWS: [&str; 5] = [
+        "Shift+Key  Octave +1",
+        "Alt+Key    Octave -1",
+        "Arrows     Change octave",
+        "Space      Sustain",
+        "Backspace  Sustain lock",
+    ];
 
     pub fn draw(show_keys: bool, sequence: i8, offset: i8, x_offset: u16, y_offset: u16) -> Result<()> {
         let mut stdout = stdout();
@@ -257,6 +274,62 @@ pub mod pianokeys {
         stdout.flush()?;
         Ok(())
     }
+
+    /// Text shown in the status row below the pedal. All fields are fixed
+    /// width so the line never changes length.
+    pub fn status_text(volume: f32, duration: Duration, sequence: i8) -> String {
+        format!(
+            "Volume: {:.2}  Note: {:.2}s  Octave: {}",
+            volume,
+            duration.as_millis() as f64 / 1000.0,
+            sequence
+        )
+    }
+
+    /// Draws the status line below the pedal: volume, note length and octave.
+    /// It is the on-screen feedback for the `+`/`-` (volume), `Up`/`Down`
+    /// (note length) and `Left`/`Right` (octave) keys.
+    pub fn draw_status(volume: f32, duration: Duration, sequence: i8, x_offset: u16, y_offset: u16) -> Result<()> {
+        let mut stdout = stdout();
+        // Clear the whole row first so a shorter text never leaves a tail.
+        queue!(
+            stdout,
+            Goto(x_offset, STATUS_ROW + y_offset),
+            PrintStyledFont(style(" ".repeat(KEYBOARD_WIDTH as usize)))
+        )?;
+        let text = status_text(volume, duration, sequence);
+        let start_x = x_offset + (KEYBOARD_WIDTH - text.len() as u16) / 2;
+        queue!(
+            stdout,
+            Goto(start_x, STATUS_ROW + y_offset),
+            PrintStyledFont(style(text).grey())
+        )?;
+        stdout.flush()?;
+        Ok(())
+    }
+
+    /// Draws the key hints at the top-right corner of the terminal (rows
+    /// 0..4, right-aligned). Shown when hints are enabled (`-k` or `-c`).
+    pub fn draw_hints(enabled: bool) -> Result<()> {
+        if !enabled {
+            return Ok(());
+        }
+        let mut stdout = stdout();
+        // Right-align against the terminal's right edge, falling back to the
+        // keyboard's right edge if the size can't be queried.
+        let (width, _) = Crossterm::new().terminal().size().unwrap_or((KEYBOARD_WIDTH, 24));
+        let right = if width > KEYBOARD_WIDTH + 1 { width } else { KEYBOARD_WIDTH };
+        for (i, line) in HINT_ROWS.iter().enumerate() {
+            let start = (right as i32 - line.len() as i32).max(0) as u16;
+            queue!(
+                stdout,
+                Goto(start, i as u16),
+                PrintStyledFont(style(line.to_string()).grey())
+            )?;
+        }
+        stdout.flush()?;
+        Ok(())
+    }
 }
 
 pub fn mark_note(pos: i16, white: bool, color: Color, duration: time::Duration, x_offset: u16, y_offset: u16) {
@@ -299,5 +372,28 @@ pub fn mark_note(pos: i16, white: bool, color: Color, duration: time::Duration, 
         ).unwrap();
         }
     });
+}
+
+#[cfg(test)]
+mod test {
+    use std::time::Duration;
+
+    use super::pianokeys;
+
+    #[test]
+    fn status_text_formats_controls() {
+        let text = pianokeys::status_text(0.4, Duration::from_millis(7000), 2);
+        assert_eq!(text, "Volume: 0.40  Note: 7.00s  Octave: 2");
+    }
+
+    #[test]
+    fn status_text_width_is_constant() {
+        let texts = [
+            pianokeys::status_text(0.05, Duration::from_millis(50), 0),
+            pianokeys::status_text(1.2, Duration::from_millis(8000), 6),
+            pianokeys::status_text(0.4, Duration::from_millis(500), 2),
+        ];
+        assert!(texts.iter().all(|t| t.len() == texts[0].len()));
+    }
 }
 

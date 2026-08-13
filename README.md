@@ -114,29 +114,40 @@ OPTIONS:
 ```
 
 - The piano is drawn in the top-left corner of the terminal by default. Pass `-c, --central`
-  to center it instead: the keyboard sits in the middle of the terminal with equal margins
-  above and below (and on both sides when the terminal is wider than the keyboard).
+  to center it instead: the instrument sits in the middle of the terminal with equal margins
+  above and below (and on both sides when the terminal is wider than the keyboard). The piano
+  also reacts to terminal resizes: the size is watched while the game runs, so it re-centers
+  and redraws itself whenever the window changes.
 
-- You can press the keys on your computer keyboard to play the piano notes.
+- You can press the keys on your computer keyboard to play the piano notes. The note keys
+  follow the layout used by [Multiplayer Piano](https://multiplayerpiano.com): the bottom row
+  (`z x c v b n m , . /`) plays the lower white keys, the home row (`a s f g j k l '`) the
+  lower black keys, the top row (`q w e r t y u i o p [ ]`) the upper white keys and
+  `1 2 4 5 7 8 9` the upper black keys.
 
 - New to the key layout? Pass `-k, --show-keys` to print the keyboard letter on each piano key.
   The labels follow the note mapping: they shift with <kbd>←</kbd> / <kbd>→</kbd>, and when you
-  play a key with <kbd>Shift</kbd> (one octave up) or <kbd>Ctrl</kbd> (one octave down) held,
-  the labels move with the notes and return to the base position once you play without the
-  modifier. (Note: a terminal only reports a modifier when it is held together with another
-  key, so the labels update as you play, not on the bare press/release of Shift or Ctrl.)
+  play a key with <kbd>Shift</kbd> (one octave up) or <kbd>Ctrl</kbd>/<kbd>Alt</kbd> (one octave
+  down) held, the labels move with the notes and return to the base position once you play
+  without the modifier. (Note: a terminal only reports a modifier when it is held together with
+  another key, so the labels update as you play, not on the bare press/release of the modifier.)
 
 - Increase or decrease the note frequency with <kbd>←</kbd> and <kbd>→</kbd> respectively
-  (or hold <kbd>ctrl</kbd> or <kbd>shift</kbd> while playing).
+  (or hold <kbd>Ctrl</kbd> or <kbd>Alt</kbd> for one octave down, <kbd>Shift</kbd> for one
+  octave up, while playing).
 
-- Press <kbd>Space</kbd> to toggle the sustain pedal, drawn as a compact pedal centered
-  below the keyboard like a real piano (it lights up while sustain is active). While the
-  pedal is down, notes ring out to their natural end instead of stopping after the
-  configured note duration. With `-k, --show-keys`, the pedal shows its `SPACE` key label.
+- Press <kbd>Space</kbd> to toggle the sustain pedal, drawn on the right side below the
+  keyboard like a real piano's sustain pedal (it lights up while sustain is active).
+  <kbd>Backspace</kbd> does the same as a sustain lock. While the pedal is down, notes ring
+  out to their natural end instead of stopping after the configured note duration. With
+  `-k, --show-keys`, the pedal shows its `SPACE` key label.
 
-- Adjust the duration for how long the notes play for with <kbd>↑</kbd> and <kbd>↓</kbd>.
+- A status row below the pedal shows the current volume, note length and octave, updating as
+  you press <kbd>+</kbd>/<kbd>-</kbd>, <kbd>↑</kbd>/<kbd>↓</kbd> and <kbd>←</kbd>/<kbd>→</kbd>.
 
-- Adjust the volume of the notes with <kbd>-</kbd> and <kbd>+</kbd>.
+- With `-k, --show-keys` or `-c, --central`, a key hint panel is drawn at the top-right corner
+  of the terminal: `Shift+Key` octave up, `Alt+Key` octave down, `Arrows` change octave,
+  `Space` sustain and `Backspace` sustain lock.
 
 - You can also record your piano session by passing the command-line argument `-r <path/to/save/notes.yml>`
   and play them later on with `-p <path/to/save/notes.yml>`.

@@ -23,6 +23,7 @@ use piano_rs::game::{
     GameEvent,
     Note,
     NoteReader,
+    screen::pianokeys,
 };
 use piano_rs::network::{
     NetworkEvent,
@@ -104,22 +105,29 @@ fn play_from_file(play_file: PathBuf, tempo: f32, keyboard: &Arc<Mutex<PianoKeyb
     }
 }
 
+/// Offsets that center the instrument in a terminal of the given size,
+/// clamped so the piano is never pushed off-screen. Without `central` the
+/// piano stays pinned to the top-left corner.
+fn centering_offsets(central: bool, (width, height): (u16, u16)) -> (u16, u16) {
+    if !central {
+        return (0, 0);
+    }
+    let x = ((width as i16 - pianokeys::KEYBOARD_WIDTH as i16) / 2).max(0) as u16;
+    let y = ((height as i16 - pianokeys::INSTRUMENT_HEIGHT as i16) / 2).max(0) as u16;
+    (x, y)
+}
+
 fn main() -> Result<()> {
     let arguments = Options::read();
 
     // With --central, shift the whole instrument so that it sits in the middle
     // of the terminal: equal margins above and below (and on both sides when
-    // the terminal is wider than the 175-column piano). The instrument is 20
-    // rows tall: 16 for the keys plus 4 for the sustain pedal below. Without
-    // the flag the piano stays pinned to the top-left corner, as before.
-    let (x_offset, y_offset) = if arguments.central {
-        let (width, height) = Crossterm::new().terminal().size().unwrap_or((80, 24));
-        let x_offset = ((width as i16 - 175) / 2).max(0) as u16;
-        let y_offset = ((height as i16 - 20) / 2).max(0) as u16;
-        (x_offset, y_offset)
-    } else {
-        (0, 0)
-    };
+    // the terminal is wider than the 175-column piano). Without the flag the
+    // piano stays pinned to the top-left corner, as before.
+    let (x_offset, y_offset) = centering_offsets(
+        arguments.central,
+        Crossterm::new().terminal().size().unwrap_or((80, 24)),
+    );
 
     let receiver_address = arguments.receiver_address;
     let event_receiver = Receiver::new(receiver_address)?;
@@ -138,11 +146,35 @@ fn main() -> Result<()> {
         Duration::from_millis(arguments.mark_duration),
         Color::Blue,
         arguments.show_keys,
+        arguments.show_keys || arguments.central,
         x_offset,
         y_offset,
     )));
 
     keyboard.lock().unwrap().draw().unwrap();
+
+    // Responsive resizing: watch the terminal size and re-center/redraw the
+    // whole instrument whenever the window changes (e.g. a split or zoom).
+    // Without --central the offsets stay pinned to the top-left corner, but
+    // the instrument is still redrawn so content clipped by a shrink is
+    // restored when the window grows again.
+    let resize_board = keyboard.clone();
+    let central = arguments.central;
+    thread::spawn(move || {
+        let mut last_size = Crossterm::new().terminal().size().unwrap_or((80, 24));
+        loop {
+            thread::sleep(Duration::from_millis(250));
+            let size = Crossterm::new().terminal().size().unwrap_or(last_size);
+            if size != last_size {
+                let (x_off, y_off) = centering_offsets(central, size);
+                let mut kb = resize_board.lock().unwrap();
+                kb.set_offsets(x_off, y_off);
+                execute!(stdout(), Clear(ClearType::All)).unwrap();
+                kb.draw().unwrap();
+                last_size = size;
+            }
+        }
+    });
 
     let cloneboard = keyboard.clone();
 
