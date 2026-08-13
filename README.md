@@ -109,7 +109,7 @@ OPTIONS:
     -r, --record-file <FILEPATH>        Record notes to .yml file (Default: None)
         --sender-address <ADDRESS>      Set the IP Address and Port to which the sender socket will bind to. A port of 0
                                         implies to bind on a random unused port (Default: 0.0.0.0:0)
-    -s, --sequence <AMOUNT>             Frequency sequence from 0 to 5 to begin with (Default: 2)
+    -s, --sequence <AMOUNT>             Frequency sequence from 0 to 5 to begin with (Default: 2; 0 is the first C)
     -k, --show-keys                     Display the keyboard letter on each key (Default: off)
     -v, --volume <AMOUNT>               Set initial volume for notes (Default: 1.0)
 ```

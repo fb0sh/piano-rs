@@ -107,7 +107,7 @@ impl Options {
                 .long("sequence")
                 .value_name("AMOUNT")
                 .takes_value(true)
-                .help("Frequency sequence from 0 to 5 to begin with (Default: 2)"))
+                .help("Frequency sequence from 0 to 5 to begin with (Default: 2; 0 is the first C)"))
 
             .arg(Arg::with_name("note_duration")
                 .short("n")

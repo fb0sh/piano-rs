@@ -69,6 +69,16 @@ pub mod pianokeys {
         "Backspace  Sustain lock",
     ];
 
+    /// True when a label or mark of `cells` columns, starting at the absolute
+    /// screen column `screen_pos` (x_offset already added), fits inside the
+    /// keyboard body. At extreme octaves shifted labels/marks would land
+    /// outside the body: they are not drawn, and anything left there is
+    /// erased, so no block lingers on the background.
+    pub fn in_body(screen_pos: i16, cells: u16, x_offset: u16) -> bool {
+        screen_pos >= x_offset as i16
+            && screen_pos + cells as i16 - 1 <= (x_offset + KEYBOARD_WIDTH - 1) as i16
+    }
+
     pub fn draw(show_keys: bool, sequence: i8, offset: i8, x_offset: u16, y_offset: u16) -> Result<()> {
         let mut stdout = stdout();
         print_whites(&mut stdout, x_offset, y_offset)?;
@@ -91,32 +101,50 @@ pub mod pianokeys {
     }
 
     /// Restores the key surfaces where labels were drawn, e.g. before redrawing
-    /// them at a new sequence or modifier offset.
+    /// them at a new sequence or modifier offset. Labels that would sit off the
+    /// right edge of the keyboard body are erased instead of repainted, so
+    /// shifting the octave back never leaves white blocks on the background.
     pub fn hide_labels(sequence: i8, offset: i8, x_offset: u16, y_offset: u16) -> Result<()> {
         let mut stdout = stdout();
         for (_key, pos, white) in notes::key_labels() {
             let screen_pos = pos + 21 * (sequence as i16 + offset as i16) + x_offset as i16;
-            if screen_pos < 0 {
+            // Labels are never drawn left of the body, so there is nothing to
+            // restore there either.
+            if screen_pos < x_offset as i16 {
                 continue;
             }
-            let screen_pos = screen_pos as u16;
             if white {
-                queue!(
-                    stdout,
-                    Goto(screen_pos, WHITE_LABEL_ROW + y_offset),
-                    PrintStyledFont("██".white())
-                )?;
+                if in_body(screen_pos, 2, x_offset) {
+                    queue!(
+                        stdout,
+                        Goto(screen_pos as u16, WHITE_LABEL_ROW + y_offset),
+                        PrintStyledFont("██".white())
+                    )?;
+                } else {
+                    // Off the right edge: erase any label drawn there at a
+                    // higher octave so it doesn't linger.
+                    queue!(
+                        stdout,
+                        Goto(screen_pos as u16, WHITE_LABEL_ROW + y_offset),
+                        PrintStyledFont(style("  "))
+                    )?;
+                }
             } else {
-                queue!(
-                    stdout,
-                    Goto(screen_pos, BLACK_LABEL_BOTTOM_ROW + y_offset),
-                    PrintStyledFont("█".black())
-                )?;
-                queue!(
-                    stdout,
-                    Goto(screen_pos, BLACK_LABEL_BOTTOM_ROW + y_offset - 1),
-                    PrintStyledFont("█".black())
-                )?;
+                for row in [BLACK_LABEL_BOTTOM_ROW, BLACK_LABEL_BOTTOM_ROW - 1] {
+                    if in_body(screen_pos, 1, x_offset) {
+                        queue!(
+                            stdout,
+                            Goto(screen_pos as u16, row + y_offset),
+                            PrintStyledFont("█".black())
+                        )?;
+                    } else {
+                        queue!(
+                            stdout,
+                            Goto(screen_pos as u16, row + y_offset),
+                            PrintStyledFont(style(" "))
+                        )?;
+                    }
+                }
             }
         }
         stdout.flush()?;
@@ -140,6 +168,13 @@ pub mod pianokeys {
         }
 
         for (pos, chars, white) in groups {
+            // Skip labels that would land outside the keyboard body (off the
+            // right edge at high octaves): nothing is drawn there, so nothing
+            // lingers when the octave moves back.
+            let cells = if white { 2 } else { 1 };
+            if !in_body(pos as i16, cells, x_offset) {
+                continue;
+            }
             if white {
                 // White keys have a 2-column wide body, so up to two letters
                 // fit side by side.
@@ -337,6 +372,12 @@ pub mod pianokeys {
 }
 
 pub fn mark_note(pos: i16, white: bool, color: Color, duration: time::Duration, x_offset: u16, y_offset: u16) {
+    // Notes at extreme octaves can sit outside the keyboard body (e.g. '[' at
+    // octave 6): draw no mark there and don't spawn a restore that would
+    // paint key-surface blocks onto the background.
+    if !pianokeys::in_body(pos + x_offset as i16, if white { 2 } else { 1 }, x_offset) {
+        return;
+    }
     if white {
         // This causes a compiler panic!
         /* queue!( */
@@ -398,6 +439,18 @@ mod test {
             pianokeys::status_text(0.4, Duration::from_millis(500), 2),
         ];
         assert!(texts.iter().all(|t| t.len() == texts[0].len()));
+    }
+
+    #[test]
+    fn in_body_bounds() {
+        // The keyboard body spans x_offset .. x_offset + 174 (175 columns).
+        assert!(pianokeys::in_body(12, 2, 12)); // first white-key label cells
+        assert!(pianokeys::in_body(12 + 174 - 1, 1, 12)); // last column (186)
+        assert!(!pianokeys::in_body(187, 1, 12)); // just past the right edge
+        assert!(pianokeys::in_body(184, 2, 12)); // 2 cells at 184..185
+        assert!(!pianokeys::in_body(186, 2, 12)); // 2 cells at 186..187 -> off
+        assert!(!pianokeys::in_body(11, 1, 12)); // left of the body
+        assert!(!pianokeys::in_body(-20, 2, 0)); // negative (Ctrl octave down)
     }
 }
 

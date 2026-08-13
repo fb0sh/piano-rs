@@ -163,16 +163,32 @@ pub fn key_to_base_note(mut key: KeyEvent, sequence: i8) -> Option<String> {
 
 /// Returns the temporary frequency offset implied by the modifier held with a
 /// key event: -1 while Ctrl or Alt is held, +1 while Shift is held, 0 for a
-/// plain key, and None for keys that don't carry a modifier (arrows, Esc, ...).
-/// Note positions and the --show-keys labels shift by 21 columns per offset.
-/// The space bar is the sustain pedal, so it doesn't carry a note modifier.
+/// plain key, and None for keys that shouldn't disturb the state (Esc, Null,
+/// the space-bar sustain pedal). Note positions and the --show-keys labels
+/// shift by 21 columns per offset.
+///
+/// Terminals cannot report a bare Shift press/release, but every event that
+/// does or does not carry Shift updates the tracked state immediately: the
+/// labels move up an octave as soon as the first Shift-carrying event
+/// arrives and move back on the next plain event, instead of staying sticky
+/// until the next note key.
 pub fn modifier_offset(key: &KeyEvent) -> Option<i8> {
     match key {
         KeyEvent::Ctrl(_) | KeyEvent::Alt(_) => Some(-1),
         KeyEvent::Char(c) if c.is_uppercase() || SPECIAL_KEYS.contains(c) => Some(1),
+        // Shift/Ctrl combined with an arrow carry the modifier even though no
+        // note is played, so the labels follow them too.
+        KeyEvent::ShiftUp | KeyEvent::ShiftDown | KeyEvent::ShiftRight | KeyEvent::ShiftLeft => Some(1),
+        KeyEvent::CtrlUp | KeyEvent::CtrlDown | KeyEvent::CtrlRight | KeyEvent::CtrlLeft => Some(-1),
+        // Enter and Tab arrive as Ctrl+m / Ctrl+i in the terminal and play
+        // one octave lower, so keep the labels in sync.
+        KeyEvent::Enter | KeyEvent::Tab => Some(-1),
+        KeyEvent::BackTab => Some(1),
         KeyEvent::Char(' ') => None,
+        KeyEvent::Esc | KeyEvent::Null => None,
+        // Any plain key means Shift is no longer held: move the labels back.
         KeyEvent::Char(_) => Some(0),
-        _ => None,
+        _ => Some(0),
     }
 }
 
@@ -258,6 +274,18 @@ mod test {
     }
 
     #[test]
+    fn c_key_at_sequence_three_is_middle_c() {
+        // The sound samples use scientific pitch notation (c3.ogg is C4,
+        // 261.63 Hz, measured from the asset). The octave numbering is
+        // 0-based with 0 = the first C, so middle C sits at sequence 3;
+        // the default sequence is 2.
+        let base_note = super::key_to_base_note(super::KeyEvent::Char('c'), 3);
+        assert_eq!(base_note, Some("c3".to_string()));
+        let note = super::Note::from("c3", super::Color::Blue, super::Duration::from_millis(100));
+        assert_eq!(note.unwrap().position, 70); // INIT 7 + 21 * (3 - 0)
+    }
+
+    #[test]
     fn key_to_base_note_none() {
         let base_note = super::key_to_base_note(super::KeyEvent::Char('~'), 2);
         assert!(base_note.is_none());
@@ -283,8 +311,16 @@ mod test {
         assert_eq!(super::modifier_offset(&KeyEvent::Char('!')), Some(1));
         assert_eq!(super::modifier_offset(&KeyEvent::Char('z')), Some(0));
         assert_eq!(super::modifier_offset(&KeyEvent::Char(' ')), None);
-        assert_eq!(super::modifier_offset(&KeyEvent::Backspace), None);
-        assert_eq!(super::modifier_offset(&KeyEvent::Right), None);
+        // Shift/Ctrl held with an arrow still report the modifier.
+        assert_eq!(super::modifier_offset(&KeyEvent::ShiftRight), Some(1));
+        assert_eq!(super::modifier_offset(&KeyEvent::CtrlUp), Some(-1));
+        // Enter/Tab arrive as Ctrl+m / Ctrl+i and play one octave lower.
+        assert_eq!(super::modifier_offset(&KeyEvent::Enter), Some(-1));
+        assert_eq!(super::modifier_offset(&KeyEvent::Tab), Some(-1));
+        assert_eq!(super::modifier_offset(&KeyEvent::BackTab), Some(1));
+        // Plain control keys report "no modifier", so the labels move back.
+        assert_eq!(super::modifier_offset(&KeyEvent::Backspace), Some(0));
+        assert_eq!(super::modifier_offset(&KeyEvent::Right), Some(0));
         assert_eq!(super::modifier_offset(&KeyEvent::Esc), None);
     }
 

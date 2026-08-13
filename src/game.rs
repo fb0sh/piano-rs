@@ -375,9 +375,16 @@ mod test {
         keyboard.process_key(KeyEvent::Ctrl('z'));
         assert_eq!(keyboard.modifier_offset, -1);
 
-        // Arrow keys keep the current modifier.
+        // A plain arrow key reports no modifier: the labels move back.
         keyboard.process_key(KeyEvent::Right);
-        assert_eq!(keyboard.modifier_offset, -1);
+        assert_eq!(keyboard.modifier_offset, 0);
+
+        // Shift held with an arrow moves the labels up an octave too.
+        keyboard.process_key(KeyEvent::ShiftRight);
+        assert_eq!(keyboard.modifier_offset, 1);
+        // A plain key brings them back.
+        keyboard.process_key(KeyEvent::Char('z'));
+        assert_eq!(keyboard.modifier_offset, 0);
     }
 
     #[test]
