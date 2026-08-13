@@ -29,6 +29,7 @@ pub mod pianokeys {
     use std::io::{stdout, Stdout, Write};
 
     use super::super::notes;
+    use super::Color;
 
     struct Point {
         x: u16,
@@ -40,6 +41,12 @@ pub mod pianokeys {
     // marks on row 8. Labels sit just above the mark rows.
     const WHITE_LABEL_ROW: u16 = 14;
     const BLACK_LABEL_BOTTOM_ROW: u16 = 7;
+
+    // The sustain pedal hangs below the keyboard body: it starts one row after
+    // the 16-row-tall white keys and spans the same width as the keyboard.
+    const PEDAL_ROW: u16 = 17;
+    const PEDAL_HEIGHT: u16 = 3;
+    const PEDAL_WIDTH: u16 = 175;
 
     pub fn draw(show_keys: bool, sequence: i8, offset: i8, x_offset: u16, y_offset: u16) -> Result<()> {
         let mut stdout = stdout();
@@ -205,6 +212,45 @@ pub mod pianokeys {
             print_blackkey(initial_point, stdout)?;
         }
 
+        Ok(())
+    }
+
+    /// Draws the sustain pedal bar below the keyboard (the space bar toggles
+    /// it). `on` lights the pedal up while sustain is active; with `show_keys`
+    /// the SPACE label is drawn centered on the pedal.
+    pub fn draw_pedal(on: bool, show_keys: bool, x_offset: u16, y_offset: u16) -> Result<()> {
+        let mut stdout = stdout();
+        let bar_color = if on { Color::Yellow } else { Color::DarkGrey };
+
+        for row in 0..PEDAL_HEIGHT {
+            for x in 0..PEDAL_WIDTH {
+                queue!(
+                    stdout,
+                    Goto(x + x_offset, PEDAL_ROW + row + y_offset),
+                    PrintStyledFont(style("█").with(bar_color))
+                )?;
+            }
+        }
+
+        if show_keys {
+            let label = "SPACE";
+            let start_x = x_offset + (PEDAL_WIDTH - label.len() as u16) / 2;
+            let label_row = PEDAL_ROW + 1 + y_offset;
+            for (i, c) in label.chars().enumerate() {
+                let cell = if on {
+                    style(c.to_string()).black().on_yellow()
+                } else {
+                    style(c.to_string()).white().on_dark_grey()
+                };
+                queue!(
+                    stdout,
+                    Goto(start_x + i as u16, label_row),
+                    PrintStyledFont(cell)
+                )?;
+            }
+        }
+
+        stdout.flush()?;
         Ok(())
     }
 }

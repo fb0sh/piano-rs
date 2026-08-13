@@ -107,14 +107,15 @@ fn play_from_file(play_file: PathBuf, tempo: f32, keyboard: &Arc<Mutex<PianoKeyb
 fn main() -> Result<()> {
     let arguments = Options::read();
 
-    // With --central, shift the whole keyboard so that it sits in the middle
+    // With --central, shift the whole instrument so that it sits in the middle
     // of the terminal: equal margins above and below (and on both sides when
-    // the terminal is wider than the 175-column keyboard). Without the flag
-    // the keyboard stays pinned to the top-left corner, as before.
+    // the terminal is wider than the 175-column piano). The instrument is 20
+    // rows tall: 16 for the keys plus 4 for the sustain pedal below. Without
+    // the flag the piano stays pinned to the top-left corner, as before.
     let (x_offset, y_offset) = if arguments.central {
         let (width, height) = Crossterm::new().terminal().size().unwrap_or((80, 24));
         let x_offset = ((width as i16 - 175) / 2).max(0) as u16;
-        let y_offset = ((height as i16 - 16) / 2).max(0) as u16;
+        let y_offset = ((height as i16 - 20) / 2).max(0) as u16;
         (x_offset, y_offset)
     } else {
         (0, 0)

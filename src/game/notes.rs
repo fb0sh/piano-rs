@@ -161,10 +161,12 @@ pub fn key_to_base_note(mut key: KeyEvent, sequence: i8) -> Option<String> {
 /// key event: -1 while Ctrl is held, +1 while Shift is held, 0 for a plain
 /// key, and None for keys that don't carry a modifier (arrows, Esc, ...).
 /// Note positions and the --show-keys labels shift by 21 columns per offset.
+/// The space bar is the sustain pedal, so it doesn't carry a note modifier.
 pub fn modifier_offset(key: &KeyEvent) -> Option<i8> {
     match key {
         KeyEvent::Ctrl(_) => Some(-1),
         KeyEvent::Char(c) if c.is_uppercase() || SPECIAL_KEYS.contains(c) => Some(1),
+        KeyEvent::Char(' ') => None,
         KeyEvent::Char(_) => Some(0),
         _ => None,
     }
@@ -264,6 +266,7 @@ mod test {
         assert_eq!(super::modifier_offset(&KeyEvent::Char('Z')), Some(1));
         assert_eq!(super::modifier_offset(&KeyEvent::Char('!')), Some(1));
         assert_eq!(super::modifier_offset(&KeyEvent::Char('z')), Some(0));
+        assert_eq!(super::modifier_offset(&KeyEvent::Char(' ')), None);
         assert_eq!(super::modifier_offset(&KeyEvent::Right), None);
         assert_eq!(super::modifier_offset(&KeyEvent::Esc), None);
     }

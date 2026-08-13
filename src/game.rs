@@ -27,6 +27,7 @@ pub struct PianoKeyboard {
     show_keys: bool,
     x_offset: u16,
     y_offset: u16,
+    pedal_on: bool,
     pub color: Color,
     player: Player,
     recorder: NoteRecorder,
@@ -48,6 +49,7 @@ impl PianoKeyboard {
             show_keys,
             x_offset,
             y_offset,
+            pedal_on: false,
             color,
             player,
             recorder: NoteRecorder::new(),
@@ -60,10 +62,25 @@ impl PianoKeyboard {
 
     pub fn draw(&self) -> Result<()> {
         pianokeys::draw(self.show_keys, self.sequence, self.modifier_offset, self.x_offset, self.y_offset)?;
+        pianokeys::draw_pedal(self.pedal_on, self.show_keys, self.x_offset, self.y_offset)?;
         Ok(())
     }
 
-    pub fn play_note(&mut self, note: Note) {
+    /// Ring duration for a note: full sample (0 ms) while the sustain pedal
+    /// is held, otherwise the note's own configured duration.
+    fn effective_note_duration(&self, note_duration: Duration) -> Duration {
+        if self.pedal_on {
+            Duration::from_millis(0)
+        } else {
+            note_duration
+        }
+    }
+
+    pub fn play_note(&mut self, mut note: Note) {
+        // With the sustain pedal down, notes ring to their natural end
+        // instead of stopping after their configured duration.
+        note.duration = self.effective_note_duration(note.duration);
+
         note.play(&self.player, self.volume);
 
         screen::mark_note(
@@ -146,6 +163,12 @@ impl PianoKeyboard {
                 self.volume -= 0.1;
                 None
             }
+            KeyEvent::Char(' ') => {
+                // Space bar is the sustain pedal: each press toggles it.
+                self.pedal_on = !self.pedal_on;
+                pianokeys::draw_pedal(self.pedal_on, self.show_keys, self.x_offset, self.y_offset).unwrap();
+                None
+            }
             KeyEvent::Esc => {
                 Some(GameEvent::Quit)
             }
@@ -192,6 +215,7 @@ mod test {
             show_keys: false,
             x_offset: 0,
             y_offset: 0,
+            pedal_on: false,
             color: Color::Blue,
             player: Player::new(),
             recorder: NoteRecorder::new(),
@@ -365,6 +389,60 @@ mod test {
         let event = keyboard.process_key(KeyEvent::Down);
         assert!(event.is_none());
         assert_eq!(keyboard.sound_duration, Duration::from_millis(6950));
+    }
+
+    #[test]
+    fn pedal_sustain_rings_notes_to_completion() {
+        let mut keyboard = PianoKeyboard::new(
+            2,
+            0.4,
+            None,
+            Duration::from_millis(300),
+            Duration::from_millis(500),
+            Color::Blue,
+            false,
+            0,
+            0,
+        );
+
+        // Without the pedal, a note keeps its configured duration.
+        assert_eq!(
+            keyboard.effective_note_duration(Duration::from_millis(250)),
+            Duration::from_millis(250)
+        );
+
+        // With the pedal down, the same note rings to its natural end.
+        keyboard.pedal_on = true;
+        assert_eq!(
+            keyboard.effective_note_duration(Duration::from_millis(250)),
+            Duration::from_millis(0)
+        );
+    }
+
+    #[test]
+    fn process_pedal_toggle_key() {
+        let mut keyboard = PianoKeyboard::new(
+            2,
+            0.4,
+            None,
+            Duration::from_millis(7000),
+            Duration::from_millis(500),
+            Color::Blue,
+            false,
+            0,
+            0,
+        );
+
+        // Space toggles the sustain pedal and never produces a note.
+        assert_eq!(keyboard.pedal_on, false);
+        let event = keyboard.process_key(KeyEvent::Char(' '));
+        assert!(event.is_none());
+        assert_eq!(keyboard.pedal_on, true);
+
+        // Pressing it again releases the pedal.
+        let event = keyboard.process_key(KeyEvent::Char(' '));
+        assert!(event.is_none());
+        assert_eq!(keyboard.pedal_on, false);
     }
 
     #[test]
