@@ -71,11 +71,14 @@ pub mod pianokeys {
 
     /// True when a label or mark of `cells` columns, starting at the absolute
     /// screen column `screen_pos` (x_offset already added), fits inside the
-    /// keyboard body. At extreme octaves shifted labels/marks would land
-    /// outside the body: they are not drawn, and anything left there is
-    /// erased, so no block lingers on the background.
+    /// keyboard body. Relative column 0 is the left border of the first white
+    /// key (the `a` key maps there but no black key is rendered at that
+    /// column), so the paintable body starts at relative column 1. At extreme
+    /// octaves shifted labels/marks would land outside the body: they are not
+    /// drawn, and anything left there is erased, so no block lingers on the
+    /// background.
     pub fn in_body(screen_pos: i16, cells: u16, x_offset: u16) -> bool {
-        screen_pos >= x_offset as i16
+        screen_pos > x_offset as i16
             && screen_pos + cells as i16 - 1 <= (x_offset + KEYBOARD_WIDTH - 1) as i16
     }
 
@@ -108,9 +111,11 @@ pub mod pianokeys {
         let mut stdout = stdout();
         for (_key, pos, white) in notes::key_labels() {
             let screen_pos = pos + 21 * (sequence as i16 + offset as i16) + x_offset as i16;
-            // Labels are never drawn left of the body, so there is nothing to
-            // restore there either.
-            if screen_pos < x_offset as i16 {
+            // Nothing is ever drawn left of the keyboard body or on relative
+            // column 0 (the `a` key's position is the border of the first
+            // white key, where no black key is rendered), so there is nothing
+            // to restore there either: repainting would leave black blocks.
+            if screen_pos <= x_offset as i16 {
                 continue;
             }
             if white {
@@ -443,12 +448,16 @@ mod test {
 
     #[test]
     fn in_body_bounds() {
-        // The keyboard body spans x_offset .. x_offset + 174 (175 columns).
-        assert!(pianokeys::in_body(12, 2, 12)); // first white-key label cells
+        // The paintable keyboard body spans relative columns 1 ..= 174
+        // (x_offset + 1 .. x_offset + 174); relative column 0 is the left
+        // border of the first white key, where the `a` key maps but no black
+        // key is rendered.
+        assert!(pianokeys::in_body(13, 2, 12)); // first white-key label cells
         assert!(pianokeys::in_body(12 + 174 - 1, 1, 12)); // last column (186)
         assert!(!pianokeys::in_body(187, 1, 12)); // just past the right edge
         assert!(pianokeys::in_body(184, 2, 12)); // 2 cells at 184..185
         assert!(!pianokeys::in_body(186, 2, 12)); // 2 cells at 186..187 -> off
+        assert!(!pianokeys::in_body(12, 1, 12)); // relative col 0 (left border)
         assert!(!pianokeys::in_body(11, 1, 12)); // left of the body
         assert!(!pianokeys::in_body(-20, 2, 0)); // negative (Ctrl octave down)
     }
