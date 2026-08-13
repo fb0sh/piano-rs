@@ -309,18 +309,22 @@ pub mod pianokeys {
     }
 
     /// Draws the key hints at the top-right corner of the terminal (rows
-    /// 0..4, right-aligned). Shown when hints are enabled (`-k` or `-c`).
+    /// 0..4, right-aligned as a block). Shown when hints are enabled
+    /// (`-k` or `-c`).
     pub fn draw_hints(enabled: bool) -> Result<()> {
         if !enabled {
             return Ok(());
         }
         let mut stdout = stdout();
-        // Right-align against the terminal's right edge, falling back to the
-        // keyboard's right edge if the size can't be queried.
+        // Right-align the whole panel against the terminal's right edge
+        // (falling back to the keyboard's right edge if the size can't be
+        // queried). Every line shares the same start column, so the key
+        // names and their descriptions line up in two tidy columns.
         let (width, _) = Crossterm::new().terminal().size().unwrap_or((KEYBOARD_WIDTH, 24));
         let right = if width > KEYBOARD_WIDTH + 1 { width } else { KEYBOARD_WIDTH };
+        let max_len = HINT_ROWS.iter().map(|l| l.len()).max().unwrap_or(0) as i32;
+        let start = (right as i32 - max_len).max(0) as u16;
         for (i, line) in HINT_ROWS.iter().enumerate() {
-            let start = (right as i32 - line.len() as i32).max(0) as u16;
             queue!(
                 stdout,
                 Goto(start, i as u16),
