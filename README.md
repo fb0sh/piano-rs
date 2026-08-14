@@ -117,8 +117,15 @@ OPTIONS:
 - The piano is drawn in the top-left corner of the terminal by default. Pass `-c, --central`
   to center it instead: the instrument sits in the middle of the terminal with equal margins
   above and below (and on both sides when the terminal is wider than the keyboard). The piano
-  also reacts to terminal resizes: the size is watched while the game runs, so it re-centers
-  and redraws itself whenever the window changes.
+  also reacts to terminal resizes: the size is watched while the game runs, so it re-scales and
+  re-centers itself whenever the window changes.
+
+- The instrument adapts to the terminal height. The keyboard is 16 rows tall at full size
+  (black keys 9 rows, a fixed 16:9 white/black height ratio) and scales down in steps (14, 12,
+  10, ... key rows) so it still fits when the window is short, always keeping the same
+  white-to-black key ratio. On very small terminals the top-right key hint panel disappears
+  first (below a 12-row keyboard), then the sustain pedal and finally the status row, so the
+  piano keeps playing even in a tiny window.
 
 - You can press the keys on your computer keyboard to play the piano notes. The note keys
   follow the layout used by [Multiplayer Piano](https://multiplayerpiano.com): the bottom row

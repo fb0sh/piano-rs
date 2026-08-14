@@ -25,7 +25,7 @@ pub struct PianoKeyboard {
     sound_duration: Duration,
     mark_duration: Duration,
     show_keys: bool,
-    show_hints: bool,
+    layout: pianokeys::InstrumentLayout,
     x_offset: u16,
     y_offset: u16,
     pedal_on: bool,
@@ -35,7 +35,7 @@ pub struct PianoKeyboard {
 }
 
 impl PianoKeyboard {
-    pub fn new(sequence: i8, volume: f32, assets: Option<PathBuf>, sound_duration: Duration, mark_duration: Duration, color: Color, show_keys: bool, show_hints: bool, x_offset: u16, y_offset: u16) -> PianoKeyboard {
+    pub fn new(sequence: i8, volume: f32, assets: Option<PathBuf>, sound_duration: Duration, mark_duration: Duration, color: Color, show_keys: bool, layout: pianokeys::InstrumentLayout, x_offset: u16, y_offset: u16) -> PianoKeyboard {
         let player = match assets {
             Some(assets_path) => Player::from(assets_path),
             None => Player::new(),
@@ -48,7 +48,7 @@ impl PianoKeyboard {
             sound_duration,
             mark_duration,
             show_keys,
-            show_hints,
+            layout,
             x_offset,
             y_offset,
             pedal_on: false,
@@ -63,10 +63,14 @@ impl PianoKeyboard {
     }
 
     pub fn draw(&self) -> Result<()> {
-        pianokeys::draw(self.show_keys, self.sequence, self.modifier_offset, self.x_offset, self.y_offset)?;
-        pianokeys::draw_pedal(self.pedal_on, self.show_keys, self.x_offset, self.y_offset)?;
-        pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset)?;
-        pianokeys::draw_hints(self.show_hints)?;
+        pianokeys::draw(self.show_keys, self.sequence, self.modifier_offset, self.layout.white_height, self.x_offset, self.y_offset)?;
+        if self.layout.show_pedal {
+            pianokeys::draw_pedal(self.pedal_on, self.show_keys, self.layout.white_height, self.x_offset, self.y_offset)?;
+        }
+        if self.layout.show_status {
+            pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.layout.white_height, self.layout.show_pedal, self.x_offset, self.y_offset)?;
+        }
+        pianokeys::draw_hints(self.show_keys && self.layout.show_hints)?;
         Ok(())
     }
 
@@ -76,6 +80,13 @@ impl PianoKeyboard {
     pub fn set_offsets(&mut self, x_offset: u16, y_offset: u16) {
         self.x_offset = x_offset;
         self.y_offset = y_offset;
+    }
+
+    /// Recomputes the instrument size/visibility for a new terminal height,
+    /// e.g. after a resize: the keys scale down (16:9 white/black ratio) and
+    /// on very small terminals the hint panel, pedal and status row drop.
+    pub fn set_layout(&mut self, layout: pianokeys::InstrumentLayout) {
+        self.layout = layout;
     }
 
     /// Ring duration for a note: full sample (0 ms) while the sustain pedal
@@ -100,6 +111,7 @@ impl PianoKeyboard {
             note.white,
             note.color,
             self.mark_duration,
+            self.layout.white_height,
             self.x_offset,
             self.y_offset,
         );
@@ -120,11 +132,11 @@ impl PianoKeyboard {
         if let Some(new_offset) = notes::modifier_offset(&key) {
             if new_offset != self.modifier_offset {
                 if self.show_keys {
-                    pianokeys::hide_labels(self.sequence, self.modifier_offset, self.x_offset, self.y_offset).unwrap();
+                    pianokeys::hide_labels(self.sequence, self.modifier_offset, self.layout.white_height, self.x_offset, self.y_offset).unwrap();
                 }
                 self.modifier_offset = new_offset;
                 if self.show_keys {
-                    pianokeys::show_labels(self.sequence, self.modifier_offset, self.x_offset, self.y_offset).unwrap();
+                    pianokeys::show_labels(self.sequence, self.modifier_offset, self.layout.white_height, self.x_offset, self.y_offset).unwrap();
                 }
             }
         }
@@ -133,26 +145,26 @@ impl PianoKeyboard {
             KeyEvent::Right => {
                 if self.sequence < 6 {
                     if self.show_keys {
-                        pianokeys::hide_labels(self.sequence, self.modifier_offset, self.x_offset, self.y_offset).unwrap();
+                        pianokeys::hide_labels(self.sequence, self.modifier_offset, self.layout.white_height, self.x_offset, self.y_offset).unwrap();
                     }
                     self.sequence += 1;
                     if self.show_keys {
-                        pianokeys::show_labels(self.sequence, self.modifier_offset, self.x_offset, self.y_offset).unwrap();
+                        pianokeys::show_labels(self.sequence, self.modifier_offset, self.layout.white_height, self.x_offset, self.y_offset).unwrap();
                     }
-                    pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset).unwrap();
+                    pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.layout.white_height, self.layout.show_pedal, self.x_offset, self.y_offset).unwrap();
                 }
                 None
             }
             KeyEvent::Left => {
                 if self.sequence > 0 {
                     if self.show_keys {
-                        pianokeys::hide_labels(self.sequence, self.modifier_offset, self.x_offset, self.y_offset).unwrap();
+                        pianokeys::hide_labels(self.sequence, self.modifier_offset, self.layout.white_height, self.x_offset, self.y_offset).unwrap();
                     }
                     self.sequence -= 1;
                     if self.show_keys {
-                        pianokeys::show_labels(self.sequence, self.modifier_offset, self.x_offset, self.y_offset).unwrap();
+                        pianokeys::show_labels(self.sequence, self.modifier_offset, self.layout.white_height, self.x_offset, self.y_offset).unwrap();
                     }
-                    pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset).unwrap();
+                    pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.layout.white_height, self.layout.show_pedal, self.x_offset, self.y_offset).unwrap();
                 }
                 None
             }
@@ -160,32 +172,34 @@ impl PianoKeyboard {
                 // The note sound files are maximum 8s in length
                 if self.sound_duration < Duration::from_millis(8000) {
                     self.sound_duration += Duration::from_millis(50);
-                    pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset).unwrap();
+                    pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.layout.white_height, self.layout.show_pedal, self.x_offset, self.y_offset).unwrap();
                 }
                 None
             }
             KeyEvent::Down => {
                 if self.sound_duration > Duration::new(0, 0) {
                     self.sound_duration -= Duration::from_millis(50);
-                    pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset).unwrap();
+                    pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.layout.white_height, self.layout.show_pedal, self.x_offset, self.y_offset).unwrap();
                 }
                 None
             }
             KeyEvent::Char('+') => {
                 self.volume += 0.1;
-                pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset).unwrap();
+                pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.layout.white_height, self.layout.show_pedal, self.x_offset, self.y_offset).unwrap();
                 None
             }
             KeyEvent::Char('-') => {
                 self.volume -= 0.1;
-                pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.x_offset, self.y_offset).unwrap();
+                pianokeys::draw_status(self.volume, self.sound_duration, self.sequence, self.layout.white_height, self.layout.show_pedal, self.x_offset, self.y_offset).unwrap();
                 None
             }
             KeyEvent::Char(' ') | KeyEvent::Backspace => {
                 // Space bar is the sustain pedal, Backspace latches it: each
                 // press toggles sustain and relights the pedal.
                 self.pedal_on = !self.pedal_on;
-                pianokeys::draw_pedal(self.pedal_on, self.show_keys, self.x_offset, self.y_offset).unwrap();
+                if self.layout.show_pedal {
+                    pianokeys::draw_pedal(self.pedal_on, self.show_keys, self.layout.white_height, self.x_offset, self.y_offset).unwrap();
+                }
                 None
             }
             KeyEvent::Esc => {
@@ -221,7 +235,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -233,7 +247,7 @@ mod test {
             sound_duration: Duration::from_millis(7000),
             mark_duration: Duration::from_millis(500),
             show_keys: false,
-            show_hints: false,
+            layout: super::screen::pianokeys::instrument_layout(24),
             x_offset: 0,
             y_offset: 0,
             pedal_on: false,
@@ -259,7 +273,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -277,7 +291,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -297,7 +311,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -317,7 +331,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -337,7 +351,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -357,7 +371,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -397,7 +411,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -417,7 +431,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -437,7 +451,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -466,7 +480,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -493,7 +507,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -519,7 +533,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -527,6 +541,32 @@ mod test {
         assert_eq!((keyboard.x_offset, keyboard.y_offset), (0, 0));
         keyboard.set_offsets(12, 4);
         assert_eq!((keyboard.x_offset, keyboard.y_offset), (12, 4));
+    }
+
+    #[test]
+    fn set_layout_scales_the_instrument() {
+        let mut keyboard = PianoKeyboard::new(
+            2,
+            0.4,
+            None,
+            Duration::from_millis(7000),
+            Duration::from_millis(500),
+            Color::Blue,
+            false,
+            super::screen::pianokeys::instrument_layout(24),
+            0,
+            0,
+        );
+
+        assert_eq!(keyboard.layout.white_height, 16);
+        assert!(keyboard.layout.show_pedal);
+        // A mid-size terminal shortens the keys.
+        keyboard.set_layout(super::screen::pianokeys::instrument_layout(13));
+        assert_eq!(keyboard.layout.white_height, 8);
+        // A tiny terminal drops the pedal.
+        keyboard.set_layout(super::screen::pianokeys::instrument_layout(6));
+        assert_eq!(keyboard.layout.white_height, 2);
+        assert_eq!(keyboard.layout.show_pedal, false);
     }
 
     #[test]
@@ -539,7 +579,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );
@@ -561,7 +601,7 @@ mod test {
             Duration::from_millis(500),
             Color::Blue,
             false,
-            false,
+            super::screen::pianokeys::instrument_layout(24),
             0,
             0,
         );

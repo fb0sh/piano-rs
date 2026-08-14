@@ -108,26 +108,29 @@ fn play_from_file(play_file: PathBuf, tempo: f32, keyboard: &Arc<Mutex<PianoKeyb
 /// Offsets that center the instrument in a terminal of the given size,
 /// clamped so the piano is never pushed off-screen. Without `central` the
 /// piano stays pinned to the top-left corner.
-fn centering_offsets(central: bool, (width, height): (u16, u16)) -> (u16, u16) {
+fn centering_offsets(central: bool, (width, height): (u16, u16), instrument_height: u16) -> (u16, u16) {
     if !central {
         return (0, 0);
     }
     let x = ((width as i16 - pianokeys::KEYBOARD_WIDTH as i16) / 2).max(0) as u16;
-    let y = ((height as i16 - pianokeys::INSTRUMENT_HEIGHT as i16) / 2).max(0) as u16;
+    let y = ((height as i16 - instrument_height as i16) / 2).max(0) as u16;
     (x, y)
 }
 
 fn main() -> Result<()> {
     let arguments = Options::read();
 
+    // The instrument scales to the terminal height: keys get shorter (16:9
+    // white/black ratio kept) and the hint panel, pedal and status row drop
+    // on very small terminals.
+    let term_size = Crossterm::new().terminal().size().unwrap_or((80, 24));
+    let layout = pianokeys::instrument_layout(term_size.1);
+
     // With --central, shift the whole instrument so that it sits in the middle
     // of the terminal: equal margins above and below (and on both sides when
     // the terminal is wider than the 175-column piano). Without the flag the
     // piano stays pinned to the top-left corner, as before.
-    let (x_offset, y_offset) = centering_offsets(
-        arguments.central,
-        Crossterm::new().terminal().size().unwrap_or((80, 24)),
-    );
+    let (x_offset, y_offset) = centering_offsets(arguments.central, term_size, layout.height);
 
     let receiver_address = arguments.receiver_address;
     let event_receiver = Receiver::new(receiver_address)?;
@@ -146,18 +149,20 @@ fn main() -> Result<()> {
         Duration::from_millis(arguments.mark_duration),
         Color::Blue,
         arguments.show_keys,
-        arguments.show_keys,
+        layout,
         x_offset,
         y_offset,
     )));
 
     keyboard.lock().unwrap().draw().unwrap();
 
-    // Responsive resizing: watch the terminal size and re-center/redraw the
-    // whole instrument whenever the window changes (e.g. a split or zoom).
-    // Without --central the offsets stay pinned to the top-left corner, but
-    // the instrument is still redrawn so content clipped by a shrink is
-    // restored when the window grows again.
+    // Responsive resizing: watch the terminal size and re-scale/re-center the
+    // whole instrument whenever the window changes (e.g. a split or zoom). The
+    // keyboard shrinks with the terminal (white/black key ratio kept) and on
+    // very small sizes the hint panel, pedal and status row drop. Without
+    // --central the offsets stay pinned to the top-left corner, but the
+    // instrument is still redrawn so content clipped by a shrink is restored
+    // when the window grows again.
     let resize_board = keyboard.clone();
     let central = arguments.central;
     thread::spawn(move || {
@@ -166,8 +171,10 @@ fn main() -> Result<()> {
             thread::sleep(Duration::from_millis(250));
             let size = Crossterm::new().terminal().size().unwrap_or(last_size);
             if size != last_size {
-                let (x_off, y_off) = centering_offsets(central, size);
+                let layout = pianokeys::instrument_layout(size.1);
+                let (x_off, y_off) = centering_offsets(central, size, layout.height);
                 let mut kb = resize_board.lock().unwrap();
+                kb.set_layout(layout);
                 kb.set_offsets(x_off, y_off);
                 execute!(stdout(), Clear(ClearType::All)).unwrap();
                 kb.draw().unwrap();
